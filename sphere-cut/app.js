@@ -173,10 +173,63 @@ const sphereGeo = (() => {
 const dotGeo = new THREE.CircleGeometry(0.05, 32);
 const dotRingGeo = new THREE.RingGeometry(0.05, 0.062, 32);
 
+/* ---------- 表面の質感：大きさの手がかり ----------
+   3cm ：プラスチック玉。強いつや（小さく鋭いハイライト）と、型の合わせ目の細い線。
+   1m  ：これまでどおりのつや消し。
+   200m：大きな構造物。たくさんの板（パネル）を継ぎ合わせた面。板ごとのわずかな色むら・継ぎ目・
+         太い補強の帯・リベット列で「細かい部品の集まり＝巨大」を示し、遠くの物のように少しかすませる。
+   色そのものは頂点色（虹色）のまま。質感はテクスチャを掛け合わせて表す。 */
+const texCache = {};
+function surfaceTexture(kind) {
+  if (texCache[kind] !== undefined) return texCache[kind];
+  if (kind === 'desk') return (texCache[kind] = null);
+  const W = 2048, H = 1024, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+  if (kind === 'eraser') {
+    // 型の合わせ目（赤道）：ごく細い線と、わずかな段差の明暗
+    c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(0, H / 2 - 2, W, 3);
+    c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(0, H / 2 + 1, W, 2);
+  } else {
+    // 巨大構造物：板・継ぎ目・帯・リベット（極付近は板が細かくなりすぎるので間引く）
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const rows = 40, cols = 80, ph = H / rows, pw = W / cols;
+    for (let r = 0; r < rows; r++) {
+      const lat = Math.abs(90 - (r + 0.5) * 180 / rows);
+      const step = lat > 75 ? 8 : lat > 60 ? 4 : lat > 45 ? 2 : 1;      // 高緯度ほど横に長い板にする
+      for (let q = 0; q < cols; q += step) {
+        const v = 0.86 + rnd() * 0.12;
+        c.fillStyle = `rgb(${255 * v | 0},${255 * v | 0},${255 * (v + .02) | 0})`;
+        c.fillRect(q * pw, r * ph, pw * step, ph);
+        c.fillStyle = 'rgba(40,45,55,.55)';                               // 継ぎ目
+        c.fillRect(q * pw, r * ph, 2, ph); c.fillRect(q * pw, r * ph, pw * step, 2);
+        if (lat < 60) {                                                    // リベット列
+          c.fillStyle = 'rgba(30,30,40,.35)';
+          for (let t = 1; t < 6; t++) c.fillRect(q * pw + t * pw * step / 6, r * ph + 5, 2, 2);
+        }
+      }
+    }
+    c.fillStyle = 'rgba(25,30,40,.6)';                                      // 補強の帯（30°ごと・45°ごと）
+    for (let r = 0; r <= rows; r += rows / 6) c.fillRect(0, r * ph - 4, W, 8);
+    for (let q = 0; q < cols; q += cols / 8) c.fillRect(q * pw - 4, H * 0.12, 8, H * 0.76);
+    c.fillStyle = 'rgba(185,195,210,.22)'; c.fillRect(0, 0, W, H);           // 遠くのかすみ
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return (texCache[kind] = tex);
+}
+function bodyMaterial(o) {
+  const map = surfaceTexture(SP.bg);
+  if (SP.bg === 'eraser')
+    return new THREE.MeshPhongMaterial({ vertexColors: true, map, shininess: 140, specular: 0xbbbbbb, ...o });
+  if (SP.bg === 'tree')
+    return new THREE.MeshLambertMaterial({ vertexColors: true, map, ...o });
+  return new THREE.MeshLambertMaterial({ vertexColors: true, ...o });
+}
 function makeMats(planes) {
   const o = planes ? { clippingPlanes: planes } : {};
   return {
-    body: new THREE.MeshLambertMaterial({ vertexColors: true, ...o }),
+    body: bodyMaterial(o),
     white: new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, ...o }),
     black: new THREE.MeshBasicMaterial({ color: 0x151515, side: THREE.DoubleSide, ...o }),
   };
@@ -191,8 +244,13 @@ function buildBody(m) {
   const ring = new THREE.Mesh(dotRingGeo, m.black); ring.position.set(0, 1.003, 0); ring.rotation.x = -Math.PI / 2; g.add(ring);
   return g;
 }
-const sphereGroup = buildBody(makeMats());
+let sphereGroup = buildBody(makeMats());
 scene.add(sphereGroup);
+function rebuildSphere() {
+  const q = sphereGroup.quaternion.clone();
+  scene.remove(sphereGroup);
+  sphereGroup = buildBody(makeMats()); sphereGroup.quaternion.copy(q); scene.add(sphereGroup);
+}
 
 /* ---------- 包丁の線（SVG） ---------- */
 const nVec = () => new THREE.Vector3(Math.cos(st.theta), Math.sin(st.theta), 0);
@@ -542,7 +600,7 @@ SPHERES.forEach((sp, i) => {
 });
 document.body.appendChild(picker);
 function chooseSphere(sp) {
-  SP = sp; if (st.cut) uncut();
+  SP = sp; if (st.cut) uncut(); rebuildSphere();
   st.history = []; renderSide(); renderHistory();
   $('spTag').textContent = '高さ ' + sp.label + ' の球';
   picker.hidden = true; drawBg(); drawKnife(); dirty = true;
