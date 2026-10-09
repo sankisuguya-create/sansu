@@ -3,9 +3,9 @@ import * as THREE from './three.module.min.js';
 /* ---------- 定数 ---------- */
 // 選べる球（高さ＝直径）。lenText(k) は「高さ×k」の長さを表す文字列
 const SPHERES = [
-  { label: '3cm',  text: k => { const v = Math.round(30 * k) / 10; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
-  { label: '1m',   text: k => { const v = Math.round(100 * k); return v === 100 ? '1m' : v + 'cm'; } },
-  { label: '200m', text: k => Math.round(200 * k) + 'm' },
+  { label: '3cm',  H: 3,   bg: 'eraser', text: k => { const v = Math.round(30 * k) / 10; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
+  { label: '1m',   H: 100, bg: 'desk',   text: k => { const v = Math.round(100 * k); return v === 100 ? '1m' : v + 'cm'; } },
+  { label: '200m', H: 200, bg: 'tree',   text: k => Math.round(200 * k) + 'm' },
 ];
 let SP = SPHERES[0];
 const lenText = k => SP.text(k);
@@ -37,6 +37,48 @@ const dl = new THREE.DirectionalLight(0xffffff, 1.6);
 dl.position.set(1.2, 1.6, 2.5); scene.add(dl);
 
 let halfW = 1, halfH = 1;
+/* ---------- 背景の比較物（画面左端に見切れる形で、球と同じ縮尺） ----------
+   球の高さ＝画面上の2単位。k＝1cm（または1m）あたりの単位数。地面＝球の下端 y=-1。
+   寸法の目安：消しゴム 長さ5.5cm・高さ1.1cm／児童机（JIS 4号）高さ64cm・幅60cm／東京スカイツリー 高さ634m・脚部の幅 約68m */
+const bgSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+bgSvg.id = 'bg'; stage.insertBefore(bgSvg, stage.firstChild);
+function drawBg() {
+  bgSvg.innerHTML = '';
+  if (!stage.clientWidth) return;
+  const k = 2 / SP.H, G = -1;
+  // 物の右端の位置：画面左端から物の幅の一部だけが見える（見切れる）ようにし、球には近づけすぎない
+  const W0 = { eraser: 5.5, desk: 60, tree: 68 }[SP.bg] * k;
+  const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.45, desk: 0.5, tree: 0.75 }[SP.bg]);
+  const P = (x, y) => toPx(x, y).map(v => v.toFixed(1)).join(',');
+  const poly = (pts, attrs = {}) => svgEl('polygon', { points: pts.map(p => P(...p)).join(' '), fill: 'var(--bgobj)', stroke: 'var(--bgline)', 'stroke-width': 2, 'stroke-linejoin': 'round', ...attrs }, bgSvg);
+  const rect = (x0, y0, x1, y1, attrs) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], attrs);
+  const line = (a, b, attrs = {}) => svgEl('line', { x1: toPx(...a)[0], y1: toPx(...a)[1], x2: toPx(...b)[0], y2: toPx(...b)[1], stroke: 'var(--bgline)', 'stroke-width': 2, ...attrs }, bgSvg);
+  line([-halfW - 1, G], [R + 0.1, G], { 'stroke-dasharray': '2 6' });          // 床・机の面
+  if (SP.bg === 'eraser') {
+    const L = 5.5 * k, T = 1.1 * k;
+    rect(R - L, G, R, G + T);
+    rect(R - L * 0.85, G - 0.02, R - L * 0.18, G + T + 0.03, { fill: 'var(--bgobj2)' });   // 紙のケース
+  } else if (SP.bg === 'desk') {
+    const W = 60 * k, Ht = 64 * k, top = 2.5 * k, leg = 3 * k, box = 13 * k;
+    rect(R - W, G + Ht - top, R, G + Ht);                                       // 天板
+    rect(R - W + 2 * k, G + Ht - top - box, R - 2 * k, G + Ht - top, { fill: 'var(--bgobj2)' });   // 物入れ
+    rect(R - leg - 1 * k, G, R - 1 * k, G + Ht - top);                          // あし
+    rect(R - W + 1 * k, G, R - W + 1 * k + leg, G + Ht - top);
+    rect(R - W + 1 * k, G + 15 * k, R - 1 * k, G + 15 * k + 2 * k);            // 横の棒
+  } else {
+    const Hm = 634, cx = R - 0.34;
+    const wAt = h => 0.68 * (1 - 0.72 * Math.pow(h / Hm, 0.8)) / 2;           // 下ほど太く、上へ細く
+    const hs = []; for (let h = 0; h < Hm; h += 20) hs.push(h); hs.push(Hm);
+    const pts = [...hs.map(h => [cx - wAt(h), G + h * k]), ...hs.reverse().map(h => [cx + wAt(h), G + h * k])];
+    poly(pts);
+    for (let h = 0; h < Hm; h += 40) {                                         // 鉄骨の組み
+      line([cx - wAt(h), G + h * k], [cx + wAt(h + 40), G + (h + 40) * k], { 'stroke-width': 1 });
+      line([cx + wAt(h), G + h * k], [cx - wAt(h + 40), G + (h + 40) * k], { 'stroke-width': 1 });
+    }
+    for (const [h0, h1, w] of [[340, 355, 0.24], [445, 452, 0.17]])          // 展望台（350m・450m）
+      rect(cx - w, G + h0 * k, cx + w, G + h1 * k, { fill: 'var(--bgobj2)' });
+  }
+}
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   renderer.setSize(w, h, false);
@@ -44,7 +86,7 @@ function resize() {
   if (halfW < 1.75) { halfW = 1.75; halfH = halfW * h / w; }
   Object.assign(cam, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
   cam.updateProjectionMatrix();
-  overlay.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  overlay.setAttribute('viewBox', `0 0 ${w} ${h}`); bgSvg.setAttribute('viewBox', `0 0 ${w} ${h}`); drawBg();
   dirty = true; drawKnife();
 }
 
@@ -128,7 +170,8 @@ const knobs = [0, 1].map(() => {
 });
 const twoG = svgEl('g', {}, overlay);
 
-function drawHeight() {
+function drawHeight() { hG.innerHTML = ''; }   // 切断画面では高さを表示しない（背景の比較物で大きさを伝える）
+function drawHeightUnused() {
   hG.innerHTML = '';
   const c = st.cut;
   // 球のまま、または「切り口を見る」で正面を向けた後だけ表示（どちらも画面上の球の輪郭は半径1）
@@ -452,7 +495,7 @@ function chooseSphere(sp) {
   SP = sp; if (st.cut) uncut();
   st.history = []; renderSide(); renderHistory();
   $('spTag').textContent = '高さ ' + sp.label + ' の球';
-  picker.hidden = true; drawKnife(); dirty = true;
+  picker.hidden = true; drawBg(); drawKnife(); dirty = true;
 }
 const tag = document.createElement('span'); tag.id = 'spTag'; tag.className = 'sptag';
 const pickBtn = document.createElement('button'); pickBtn.className = 'tog'; pickBtn.id = 'bPick'; pickBtn.textContent = '球をえらぶ';
