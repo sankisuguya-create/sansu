@@ -23,8 +23,9 @@
   <footer>
     <div class="grp" id="gPos">
       <label for="pos">切る位置</label>
-      <input id="pos" type="range" min="-97" max="97" step="1" value="40">
-      <div class="scale"><span>はし</span><span>まんなか</span><span>はし</span></div>
+      <input id="pos" type="range" min="-97" max="97" step="1" value="40" list="posTicks">
+      <datalist id="posTicks"><option value="0"></option></datalist>
+      <div class="scale"><span>はし</span><button type="button" class="mid" id="toCenter">まんなか</button><span>はし</span></div>
     </div>
     <div class="grp" id="gAng">
       <label for="ang">かたむき</label>

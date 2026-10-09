@@ -9,7 +9,7 @@ const SPHERES = [
 ];
 let SP = SPHERES[0];
 const lenText = k => SP.text(k);
-const SNAP = 0.04;             // まんなかへの吸着幅
+const SNAP = 0.08;             // まんなかへの吸着幅（球の半径の8%以内なら真ん中にそろえる）
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
 const TEACHER = document.body.dataset.mode === 'teacher';
@@ -321,6 +321,12 @@ const hG = svgEl('g', { 'pointer-events': 'none' }, overlay);   // 高さの点�
 const kG = svgEl('g', {}, overlay);
 const kShadow = svgEl('line', { stroke: '#fff', 'stroke-width': 9, 'stroke-linecap': 'round', opacity: .8 }, kG);
 const kLine = svgEl('line', { stroke: '#111', 'stroke-width': 4, 'stroke-dasharray': '14 8', 'stroke-linecap': 'round' }, kG);
+// 真ん中に合ったときの印（球の中心の点と「まんなか」）
+const kCenter = svgEl('g', { 'pointer-events': 'none' });
+svgEl('circle', { r: 7, fill: '#1f4fd1', stroke: '#fff', 'stroke-width': 3 }, kCenter);
+const kCTxt = svgEl('text', { y: -16, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1f4fd1',
+  stroke: '#fff', 'stroke-width': 5, 'paint-order': 'stroke' }, kCenter);
+kCTxt.textContent = 'まんなか';
 const kHit = svgEl('line', { stroke: 'transparent', 'stroke-width': 44, class: 'hit' }, kG);
 const knobs = [0, 1].map(() => {
   const g = svgEl('g', { class: 'knob' }, kG);
@@ -353,6 +359,13 @@ function drawHeightUnused() {
 function drawKnife() {
   drawHeight();
   if (!stage.clientWidth) return;
+  const atC = st.d === 0;
+  kLine.setAttribute('stroke', atC ? '#1f4fd1' : '#111');
+  kLine.setAttribute('stroke-width', atC ? 6 : 4);
+  if (!kCenter.parentNode) kG.insertBefore(kCenter, kHit);
+  kCenter.style.display = atC ? '' : 'none';
+  const [ox, oy] = toPx(0, 0); kCenter.setAttribute('transform', `translate(${ox},${oy})`);
+  $('gPos').classList.toggle('at-center', atC);
   const n = nVec(), m = [-n.y, n.x];
   const cx = n.x * st.d, cy = n.y * st.d, L = 1.25;
   const a = toPx(cx - m[0] * L, cy - m[1] * L), b = toPx(cx + m[0] * L, cy + m[1] * L);
@@ -424,6 +437,7 @@ for (const el of [cv, kHit, ...knobs]) {
 }
 
 $('pos').addEventListener('input', e => setD(+e.target.value / 100));
+$('toCenter').addEventListener('click', () => { if (!st.cut) setD(0); });
 $('ang').addEventListener('input', e => setTheta(+e.target.value * Math.PI / 180));
 
 /* 2点で線をひく */
@@ -636,17 +650,44 @@ function tick() {
 
 new ResizeObserver(resize).observe(stage);
 /* ---------- 最初の画面：球をえらぶ ---------- */
+// 選択カードの球：本体と同じ虹色・北が白、質感も本体に合わせる（3cm＝つや、1m＝つや消し、300m＝板の継ぎ目）
+function cardSvg(i, bg) {
+  const id = 'c' + i, cx = 8, r = 50;
+  let extra = '';
+  if (bg === 'eraser') {
+    extra = `<ellipse cx="${cx}" cy="4" rx="${r}" ry="9" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="1.2"/>
+      <ellipse cx="${cx - 16}" cy="-24" rx="10" ry="7" fill="#fff" opacity=".95" transform="rotate(-25 ${cx - 16} -24)"/>
+      <circle cx="${cx - 16}" cy="-24" r="3" fill="#fff"/>`;
+  } else if (bg === 'tree') {
+    let lines = '';
+    for (const y of [-38, -24, -10, 4, 18, 32]) { const rx = Math.sqrt(r * r - y * y); lines += `<ellipse cx="${cx}" cy="${y + 4}" rx="${rx}" ry="${rx * .18}" fill="none" stroke="#283040" stroke-opacity=".55" stroke-width="${y === 4 ? 2.2 : 1}"/>`; }
+    for (const rx of [12, 26, 38, 47]) lines += `<ellipse cx="${cx}" cy="0" rx="${rx}" ry="${r}" fill="none" stroke="#283040" stroke-opacity=".5" stroke-width="${rx === 26 ? 2 : 1}"/>`;
+    lines += `<line x1="${cx}" y1="${-r}" x2="${cx}" y2="${r}" stroke="#283040" stroke-opacity=".55" stroke-width="2"/>`;
+    extra = `<g clip-path="url(#${id}clip)">${lines}<rect x="${cx - r}" y="${-r}" width="${2 * r}" height="${2 * r}" fill="url(#${id}panel)" opacity=".35"/></g>
+      <circle cx="${cx}" r="${r}" fill="#b9c3d2" opacity=".18"/>`;
+  }
+  return `<svg viewBox="-80 -64 160 128" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}rb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f9a85"/><stop offset=".35" stop-color="#b4a64c"/><stop offset=".65" stop-color="#e09a5c"/><stop offset="1" stop-color="#d7738a"/></linearGradient>
+      <linearGradient id="${id}wh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <radialGradient id="${id}sh" cx="42%" cy="38%" r="65%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="${bg === 'eraser' ? .35 : .28}"/></radialGradient>
+      <clipPath id="${id}clip"><circle cx="${cx}" r="${r}"/></clipPath>
+      <pattern id="${id}panel" width="6" height="5" patternUnits="userSpaceOnUse"><rect width="6" height="5" fill="none" stroke="#283040" stroke-width=".6"/></pattern>
+    </defs>
+    <line x1="-62" y1="-50" x2="0" y2="-50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
+    <line x1="-62" y1="50" x2="0" y2="50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
+    <circle cx="${cx}" r="${r}" fill="url(#${id}rb)"/>
+    <circle cx="${cx}" r="${r}" fill="url(#${id}wh)"/>
+    ${extra}
+    <circle cx="${cx}" r="${r}" fill="url(#${id}sh)"/>
+    <line x1="-58" y1="-50" x2="-58" y2="50" stroke="#1f4fd1" stroke-width="3" stroke-dasharray="7 5"/>
+  </svg>`;
+}
 const picker = document.createElement('div'); picker.id = 'picker';
 picker.innerHTML = '<h2>どの球を切る？</h2><div class="pk-row"></div>';
 SPHERES.forEach((sp, i) => {
   const b = document.createElement('button'); b.className = 'pk';
-  b.innerHTML = `<svg viewBox="-80 -64 160 128" aria-hidden="true">
-    <defs><radialGradient id="pg${i}" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#d9c27a"/><stop offset="1" stop-color="#6f8f9a"/></radialGradient></defs>
-    <line x1="-62" y1="-50" x2="0" y2="-50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
-    <line x1="-62" y1="50" x2="0" y2="50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
-    <circle cx="8" r="50" fill="url(#pg${i})" stroke="#333" stroke-width="2"/>
-    <line x1="-58" y1="-50" x2="-58" y2="50" stroke="#1f4fd1" stroke-width="3" stroke-dasharray="7 5"/>
-  </svg><span class="pk-n">${i + 1}</span><span class="pk-t">高さ ${sp.label}</span>`;
+  b.innerHTML = cardSvg(i, sp.bg) + `<span class="pk-n">${i + 1}</span><span class="pk-t">高さ ${sp.label}</span>`;
   b.addEventListener('click', () => chooseSphere(sp));
   picker.querySelector('.pk-row').appendChild(b);
 });

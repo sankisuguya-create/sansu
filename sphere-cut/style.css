@@ -125,3 +125,10 @@ header button{white-space:nowrap}
 }
 
 #bg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* 切る位置：まんなかに合わせやすく */
+.scale{align-items:center}
+.scale .mid{font-size:13px;font-weight:700;min-height:30px;padding:2px 10px;border-radius:999px;border:2px solid var(--accent);color:var(--accent);background:var(--panel)}
+#gPos.at-center .mid{background:var(--accent);color:#fff}
+#gPos.at-center label::after{content:"　まんなか";color:var(--accent)}
+.scale{min-height:30px}
