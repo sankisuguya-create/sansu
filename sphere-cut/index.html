@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>球を切ってみよう</title>
+<style>
+:root{
+  --bg:#f6f4ef; --panel:#ffffff; --ink:#1f2328; --sub:#5b6270; --line:#d9d5cc;
+  --accent:#1f4fd1; --knife:#111; --cap:#f3efe6; --good:#b0420c;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;overflow:hidden}
+#app{display:grid;height:100%;grid-template-columns:1fr 300px;grid-template-rows:auto 1fr auto;
+  grid-template-areas:"head side" "stage side" "ctrl side"}
+header{grid-area:head;display:flex;align-items:center;gap:12px;padding:10px 16px}
+header h1{font-size:22px;margin:0;font-weight:700;letter-spacing:.05em}
+header .sp{flex:1}
+#stage{grid-area:stage;position:relative;min-height:0;touch-action:none}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#overlay .hit{pointer-events:stroke;cursor:grab}
+#overlay .knob{pointer-events:all;cursor:grab}
+#hint{position:absolute;left:16px;top:8px;font-size:15px;color:var(--sub);pointer-events:none}
+aside{grid-area:side;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+aside h2{font-size:16px;margin:14px 16px 6px;color:var(--sub);font-weight:700}
+#cutView{display:block;margin:0 auto;width:220px;height:220px}
+#cutText{text-align:center;font-size:22px;font-weight:700;min-height:32px;margin:4px 0 8px}
+#hist{flex:1;overflow-y:auto;padding:12px 10px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:start}
+.hi{border:2px solid var(--line);border-radius:10px;padding:4px;text-align:center;background:#fff;cursor:pointer;font-size:13px;position:relative}
+.hi.max{border-color:var(--good)}
+.hi.max::after{content:"いちばん大きい";position:absolute;left:50%;top:-9px;transform:translateX(-50%);
+  background:var(--good);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;white-space:nowrap}
+.hi svg{display:block;margin:0 auto}
+footer{grid-area:ctrl;display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel)}
+.grp{display:flex;flex-direction:column;gap:2px;min-width:220px;flex:1}
+.grp label{font-size:15px;font-weight:700}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--sub)}
+input[type=range]{width:100%;height:36px;accent-color:var(--accent)}
+button{font:inherit;font-size:18px;font-weight:700;border-radius:12px;border:2px solid var(--ink);background:#fff;color:var(--ink);
+  padding:10px 18px;min-height:52px;cursor:pointer}
+button.primary{background:var(--ink);color:#fff}
+button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.35;cursor:default}
+.tog{font-size:15px;min-height:42px;padding:6px 12px}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.disabled{opacity:.35;pointer-events:none}
+@media (max-width:820px){
+  #app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto 230px;grid-template-areas:"head" "stage" "ctrl" "side"}
+  aside{border-left:none;border-top:1px solid var(--line);flex-direction:row}
+  aside>div{flex:1;min-width:0}
+  #cutView{width:150px;height:150px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>球を切ってみよう</h1>
+    <span class="sp"></span>
+    <button class="tog" id="tNum" aria-pressed="false">直径の長さ</button>
+    <button class="tog" id="tReset">向きをもどす</button>
+  </header>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <svg id="overlay"></svg>
+    <div id="hint"></div>
+  </div>
+
+  <footer>
+    <div class="grp" id="gPos">
+      <label for="pos">切る位置</label>
+      <input id="pos" type="range" min="-97" max="97" step="1" value="40">
+      <div class="scale"><span>はし</span><span>まんなか</span><span>はし</span></div>
+    </div>
+    <div class="grp" id="gAng">
+      <label for="ang">かたむき</label>
+      <input id="ang" type="range" min="0" max="179" step="1" value="90">
+      <div class="scale"><span>たて</span><span>よこ</span><span>たて</span></div>
+    </div>
+    <div class="btns">
+      <button class="tog" id="tTwo" aria-pressed="false">2点で線をひく</button>
+      <button class="primary" id="bCut">切る</button>
+      <button id="bFace" disabled>切り口を見る</button>
+      <button id="bBack" disabled>もとにもどす</button>
+    </div>
+  </footer>
+
+  <aside>
+    <div>
+      <h2>切り口</h2>
+      <svg id="cutView" viewBox="-110 -110 220 220"></svg>
+      <div id="cutText"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <h2>これまでの切り口<span style="font-weight:400;font-size:12px">（おすと同じ切り方にもどる）</span></h2>
+      <div id="hist"></div>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from './three.module.min.js';
+
+/* ---------- 定数 ---------- */
+const REAL_R = 4;              // 球の半径 4cm（教科書の直径8cmに合わせる）
+const SNAP = 0.04;             // まんなかへの吸着幅
+const SVGNS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+
+/* ---------- 状態 ---------- */
+const st = {
+  theta: Math.PI / 2,          // 包丁の法線の向き（画面内）。π/2 = よこ線
+  d: 0.40,                     // 中心からの距離（球の半径=1）
+  showNum: false,
+  twoMode: false, twoPts: [],
+  cut: null,                   // 切断中の情報
+  history: [],
+};
+
+/* ---------- three.js ---------- */
+const cv = $('cv'), stage = $('stage'), overlay = $('overlay');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.localClippingEnabled = true;
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20);
+cam.position.set(0, 0, 10);
+scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.6);
+dl.position.set(1.2, 1.6, 2.5); scene.add(dl);
+
+let halfW = 1, halfH = 1;
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  halfH = 1.75; halfW = halfH * w / h;
+  if (halfW < 1.75) { halfW = 1.75; halfH = halfW * h / w; }
+  Object.assign(cam, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+  cam.updateProjectionMatrix();
+  overlay.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  dirty = true; drawKnife();
+}
+
+/* 虹色の球（経度で色相、緯度で明るさ） */
+const sphereGeo = (() => {
+  const g = new THREE.SphereGeometry(1, 72, 48);
+  const p = g.attributes.position, col = [];
+  const c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const hue = ((Math.atan2(z, x) / (Math.PI * 2)) + 1) % 1;
+    c.setHSL(hue, 0.85, 0.52 + 0.18 * y);
+    col.push(c.r, c.g, c.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+})();
+const dotGeo = new THREE.SphereGeometry(0.085, 20, 14);
+
+function makeMats(planes) {
+  const o = planes ? { clippingPlanes: planes } : {};
+  return {
+    body: new THREE.MeshLambertMaterial({ vertexColors: true, ...o }),
+    white: new THREE.MeshLambertMaterial({ color: 0xffffff, ...o }),
+    black: new THREE.MeshLambertMaterial({ color: 0x151515, ...o }),
+  };
+}
+function buildBody(m) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(sphereGeo, m.body));
+  const w = new THREE.Mesh(dotGeo, m.white); w.position.set(0, 0.97, 0); g.add(w);
+  const b = new THREE.Mesh(dotGeo, m.black); b.position.set(0, -0.97, 0); g.add(b);
+  return g;
+}
+const sphereGroup = buildBody(makeMats());
+scene.add(sphereGroup);
+
+/* ---------- 包丁の線（SVG） ---------- */
+const nVec = () => new THREE.Vector3(Math.cos(st.theta), Math.sin(st.theta), 0);
+const toPx = (x, y) => [ (x / halfW * 0.5 + 0.5) * stage.clientWidth, (0.5 - y / halfH * 0.5) * stage.clientHeight ];
+function toWorld(e) {
+  const r = stage.getBoundingClientRect();
+  return [ ((e.clientX - r.left) / r.width - 0.5) * 2 * halfW, (0.5 - (e.clientY - r.top) / r.height) * 2 * halfH ];
+}
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+const kG = svgEl('g', {}, overlay);
+const kShadow = svgEl('line', { stroke: '#fff', 'stroke-width': 9, 'stroke-linecap': 'round', opacity: .8 }, kG);
+const kLine = svgEl('line', { stroke: '#111', 'stroke-width': 4, 'stroke-dasharray': '14 8', 'stroke-linecap': 'round' }, kG);
+const kHit = svgEl('line', { stroke: 'transparent', 'stroke-width': 44, class: 'hit' }, kG);
+const knobs = [0, 1].map(() => {
+  const g = svgEl('g', { class: 'knob' }, kG);
+  svgEl('circle', { r: 24, fill: '#fff', stroke: '#111', 'stroke-width': 3 }, g);
+  svgEl('path', { d: 'M-9 -4 A10 10 0 1 1 -4 9 M-9 -4 l-1 -7 M-9 -4 l7 -1', fill: 'none', stroke: '#111', 'stroke-width': 2.6, 'stroke-linecap': 'round' }, g);
+  return g;
+});
+const twoG = svgEl('g', {}, overlay);
+
+function drawKnife() {
+  if (!stage.clientWidth) return;
+  const n = nVec(), m = [-n.y, n.x];
+  const cx = n.x * st.d, cy = n.y * st.d, L = 1.45;
+  const a = toPx(cx - m[0] * L, cy - m[1] * L), b = toPx(cx + m[0] * L, cy + m[1] * L);
+  for (const l of [kShadow, kLine, kHit]) {
+    l.setAttribute('x1', a[0]); l.setAttribute('y1', a[1]);
+    l.setAttribute('x2', b[0]); l.setAttribute('y2', b[1]);
+  }
+  knobs[0].setAttribute('transform', `translate(${a[0]},${a[1]})`);
+  knobs[1].setAttribute('transform', `translate(${b[0]},${b[1]})`);
+  kG.style.display = st.cut ? 'none' : '';
+  $('pos').value = Math.round(st.d * 100);
+  let deg = Math.round(st.theta * 180 / Math.PI) % 180; if (deg < 0) deg += 180;
+  $('ang').value = deg;
+  updateHint();
+}
+function setTheta(t) {
+  // 法線が反転したら位置も反転させ、線の見た目の位置を保つ
+  if (Math.cos(t - st.theta) < 0) { t += Math.PI; }
+  st.theta = t; drawKnife();
+}
+function setD(d) {
+  d = Math.max(-0.97, Math.min(0.97, d));
+  if (Math.abs(d) < SNAP) d = 0;
+  st.d = d; drawKnife();
+}
+
+/* ---------- 入力 ---------- */
+let drag = null;
+kHit.addEventListener('pointerdown', e => {
+  if (st.twoMode) return;
+  e.stopPropagation(); kHit.setPointerCapture(e.pointerId);
+  drag = { kind: 'move' };
+});
+knobs.forEach(k => k.addEventListener('pointerdown', e => {
+  if (st.twoMode) return;
+  e.stopPropagation(); k.setPointerCapture(e.pointerId);
+  const [x, y] = toWorld(e);
+  drag = { kind: 'rot', phi0: Math.atan2(y, x), th0: st.theta };
+}));
+cv.addEventListener('pointerdown', e => {
+  if (st.twoMode && !st.cut) { addTwoPoint(e); return; }
+  cv.setPointerCapture(e.pointerId);
+  drag = { kind: 'spin', x: e.clientX, y: e.clientY };
+});
+function onMove(e) {
+  if (!drag) return;
+  if (drag.kind === 'spin') {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.x = e.clientX; drag.y = e.clientY;
+    const len = Math.hypot(dx, dy); if (!len) return;
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(dy / len, dx / len, 0), len * 0.009);
+    const tgt = st.cut ? st.cut.group : sphereGroup;
+    if (st.cut) st.cut.qTarget = null;
+    tgt.quaternion.premultiply(q); dirty = true;
+  } else if (drag.kind === 'move') {
+    const [x, y] = toWorld(e); const n = nVec();
+    setD(x * n.x + y * n.y);
+  } else if (drag.kind === 'rot') {
+    const [x, y] = toWorld(e);
+    let dphi = Math.atan2(y, x) - drag.phi0;
+    st.theta = drag.th0 + dphi; drawKnife();   // 中心のまわりに回す：中心からの距離は変わらない
+  }
+}
+function onUp() { drag = null; }
+for (const el of [cv, kHit, ...knobs]) {
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+}
+
+$('pos').addEventListener('input', e => setD(+e.target.value / 100));
+$('ang').addEventListener('input', e => setTheta(+e.target.value * Math.PI / 180));
+
+/* 2点で線をひく */
+$('tTwo').addEventListener('click', () => {
+  st.twoMode = !st.twoMode; st.twoPts = [];
+  $('tTwo').setAttribute('aria-pressed', st.twoMode);
+  twoG.innerHTML = ''; updateHint();
+});
+function addTwoPoint(e) {
+  const p = toWorld(e); st.twoPts.push(p);
+  const px = toPx(p[0], p[1]);
+  svgEl('circle', { cx: px[0], cy: px[1], r: 10, fill: '#111' }, twoG);
+  if (st.twoPts.length === 2) {
+    const [a, b] = st.twoPts;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    if (Math.hypot(dx, dy) > 0.05) {
+      let t = Math.atan2(dx, -dy);                // 線に垂直な向き
+      const n = [Math.cos(t), Math.sin(t)];
+      let d = a[0] * n[0] + a[1] * n[1];
+      st.theta = t; setD(d);
+    }
+    setTimeout(() => { twoG.innerHTML = ''; }, 350);
+    st.twoMode = false; st.twoPts = [];
+    $('tTwo').setAttribute('aria-pressed', false);
+  }
+  updateHint();
+}
+function updateHint() {
+  const h = $('hint');
+  if (st.twoMode) h.textContent = st.twoPts.length ? 'もう1点おしてください' : '線の1点目をおしてください';
+  else if (st.cut) h.textContent = '球をドラッグすると回せます';
+  else h.textContent = '球をドラッグで回す／線をドラッグで動かす／○で線を回す';
+}
+
+/* ---------- 切る ---------- */
+const capMat = new THREE.MeshBasicMaterial({ color: 0xf3efe6, side: THREE.DoubleSide });
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+const markMat = new THREE.MeshBasicMaterial({ color: 0x1f4fd1, side: THREE.DoubleSide });
+
+function makeCap(r) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.CircleGeometry(r, 72), capMat));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.97, r, 72), ringMat); ring.position.z = 0.002; g.add(ring);
+  const c = new THREE.Mesh(new THREE.CircleGeometry(0.035, 20), markMat); c.position.z = 0.003; g.add(c);
+  const bar = new THREE.Mesh(new THREE.PlaneGeometry(2 * r * 0.97, 0.025), markMat);
+  bar.position.z = 0.003; bar.userData.isBar = true; g.add(bar);
+  return g;
+}
+
+function doCut() {
+  if (st.cut) return;
+  const n = nVec(), d = st.d, r = Math.sqrt(1 - d * d);
+  const q = sphereGroup.quaternion.clone();
+  const group = new THREE.Group();
+  const halves = [1, -1].map(sgn => {
+    const plane = new THREE.Plane();
+    const hg = new THREE.Group();
+    const inner = buildBody(makeMats([plane]));
+    inner.quaternion.copy(q); hg.add(inner);
+    const cap = makeCap(r);
+    const out = n.clone().multiplyScalar(-sgn);           // 切り口の外向き
+    cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), out);
+    cap.position.copy(n).multiplyScalar(d).addScaledVector(out, 0.001);
+    hg.add(cap); group.add(hg);
+    return { sgn, plane, hg, cap };
+  });
+  scene.add(group); sphereGroup.visible = false;
+  // 切り口が見えるよう、包丁の線を軸に少し手前へ傾ける
+  const tilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(-n.y, n.x, 0), -0.75);
+  st.cut = { n, d, r, group, halves, s: 0, sTarget: 0.5, qTarget: tilt, tilt, face: false };
+  applyNumVisibility();
+
+  const rec = { theta: st.theta, d, diam: 2 * r * REAL_R };
+  st.history.push(rec);
+  renderSide(rec); renderHistory();
+  setButtons(); drawKnife(); dirty = true;
+}
+function uncut() {
+  const c = st.cut; if (!c) return;
+  sphereGroup.quaternion.copy(c.group.quaternion).multiply(sphereGroup.quaternion);
+  scene.remove(c.group);
+  c.group.traverse(o => { if (o.material && o.material.clippingPlanes) o.material.dispose(); });
+  st.cut = null; sphereGroup.visible = true;
+  setButtons(); drawKnife(); dirty = true;
+}
+function toggleFace() {
+  const c = st.cut; if (!c) return;
+  c.face = !c.face;
+  const B = c.halves[1];
+  if (c.face) {
+    // かたほう（線の上側にあった方）の切り口を正面へ
+    c.qTarget = new THREE.Quaternion().setFromUnitVectors(c.n.clone().negate(), new THREE.Vector3(0, 0, 1));
+    B.hg.visible = false; c.sTarget = 0;
+  } else {
+    c.qTarget = c.tilt.clone(); B.hg.visible = true; c.sTarget = 0.5;
+  }
+  $('bFace').textContent = c.face ? '両方を見る' : '切り口を見る';
+  dirty = true;
+}
+function setButtons() {
+  const cut = !!st.cut;
+  $('bCut').disabled = cut; $('bFace').disabled = !cut; $('bBack').disabled = !cut;
+  $('bFace').textContent = '切り口を見る';
+  for (const id of ['gPos', 'gAng', 'tTwo']) $(id).classList.toggle('disabled', cut);
+}
+$('bCut').addEventListener('click', doCut);
+$('bBack').addEventListener('click', uncut);
+$('bFace').addEventListener('click', toggleFace);
+$('tReset').addEventListener('click', () => {
+  if (st.cut) st.cut.qTarget = new THREE.Quaternion();
+  else sphereGroup.quaternion.identity();
+  dirty = true;
+});
+$('tNum').addEventListener('click', () => {
+  st.showNum = !st.showNum; $('tNum').setAttribute('aria-pressed', st.showNum);
+  applyNumVisibility(); renderSide(st.history[st.history.length - 1]); renderHistory();
+});
+function applyNumVisibility() {
+  if (!st.cut) return;
+  st.cut.halves.forEach(h => h.cap.children.forEach(o => { if (o.userData.isBar) o.visible = st.showNum; }));
+  dirty = true;
+}
+
+/* ---------- 右パネル ---------- */
+const fmt = v => (Math.round(v * 10) / 10).toFixed(1);
+function renderSide(rec) {
+  const s = $('cutView'); s.innerHTML = '';
+  svgEl('circle', { r: 100, fill: 'none', stroke: '#b9b3a6', 'stroke-width': 2, 'stroke-dasharray': '6 5' }, s);
+  if (!rec) { $('cutText').textContent = ''; svgEl('text', { y: 6, 'text-anchor': 'middle', 'font-size': 15, fill: '#5b6270' }, s).textContent = 'まだ切っていません'; return; }
+  const r = rec.diam / (2 * REAL_R) * 100;
+  svgEl('circle', { r, fill: '#f3efe6', stroke: '#333', 'stroke-width': 3 }, s);
+  svgEl('circle', { r: 4, fill: '#1f4fd1' }, s);
+  if (st.showNum) {
+    svgEl('line', { x1: -r, x2: r, stroke: '#1f4fd1', 'stroke-width': 3 }, s);
+    $('cutText').innerHTML = `直径 ${fmt(rec.diam)}cm <span style="font-size:13px;color:#5b6270;font-weight:400">（球の直径 ${2 * REAL_R}cm＝点線）</span>`;
+  } else {
+    $('cutText').innerHTML = '<span style="font-size:13px;color:#5b6270;font-weight:400">点線＝球と同じ大きさの円</span>';
+  }
+}
+function renderHistory() {
+  const box = $('hist'); box.innerHTML = '';
+  const max = Math.max(...st.history.map(h => h.diam));
+  st.history.forEach((h, i) => {
+    const el = document.createElement('div');
+    el.className = 'hi' + (st.history.length > 1 && max - h.diam < 0.05 ? ' max' : '');
+    const s = svgEl('svg', { width: 64, height: 64, viewBox: '-34 -34 68 68' });
+    svgEl('circle', { r: 28, fill: '#fff', stroke: '#888', 'stroke-width': 1.5 }, s);
+    const nx = Math.cos(h.theta), ny = -Math.sin(h.theta);  // SVGはyが下向き
+    const cx = nx * h.d * 28, cy = ny * h.d * 28, mx = -ny, my = nx;
+    svgEl('line', { x1: cx - mx * 33, y1: cy - my * 33, x2: cx + mx * 33, y2: cy + my * 33, stroke: '#111', 'stroke-width': 2.5, 'stroke-dasharray': '5 3' }, s);
+    el.appendChild(s);
+    const s2 = svgEl('svg', { width: 64, height: 64, viewBox: '-32 -32 64 64' });
+    svgEl('circle', { r: 28, fill: 'none', stroke: '#ccc', 'stroke-dasharray': '3 3' }, s2);
+    svgEl('circle', { r: h.diam / (2 * REAL_R) * 28, fill: '#f3efe6', stroke: '#333', 'stroke-width': 2 }, s2);
+    el.appendChild(s2);
+    const t = document.createElement('div');
+    t.textContent = st.showNum ? `${i + 1}．${fmt(h.diam)}cm` : `${i + 1}`;
+    el.appendChild(t);
+    el.addEventListener('click', () => { if (st.cut) uncut(); st.theta = h.theta; setD(h.d); renderSide(h); });
+    box.appendChild(el);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- 描画ループ（変化があるときだけ描く：4GB機対策） ---------- */
+let dirty = true;
+const tmpPlane = new THREE.Plane();
+function tick() {
+  const c = st.cut;
+  if (c) {
+    if (Math.abs(c.s - c.sTarget) > 1e-4) { c.s += (c.sTarget - c.s) * 0.15; dirty = true; }
+    if (c.qTarget) {
+      c.group.quaternion.slerp(c.qTarget, 0.15);
+      if (c.group.quaternion.angleTo(c.qTarget) < 1e-3) { c.group.quaternion.copy(c.qTarget); c.qTarget = null; }
+      dirty = true;
+    }
+    if (dirty) {
+      c.group.updateMatrixWorld(true);
+      c.halves.forEach(h => {
+        h.hg.position.copy(c.n).multiplyScalar(h.sgn * c.s);
+        // 半分Aは n·p ≥ d+s を残す／半分Bは -n·p ≥ -(d-s) を残す
+        tmpPlane.normal.copy(c.n).multiplyScalar(h.sgn);
+        tmpPlane.constant = h.sgn > 0 ? -(c.d + c.s) : (c.d - c.s);
+        h.plane.copy(tmpPlane).applyMatrix4(c.group.matrixWorld);
+      });
+      c.group.updateMatrixWorld(true);
+    }
+  }
+  if (dirty) { renderer.render(scene, cam); dirty = false; }
+  requestAnimationFrame(tick);
+}
+
+new ResizeObserver(resize).observe(stage);
+resize(); setButtons(); renderSide(); updateHint();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
