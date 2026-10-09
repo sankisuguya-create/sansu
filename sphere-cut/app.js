@@ -66,44 +66,57 @@ function drawBg() {
     <linearGradient id="gTree" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9d4e0"/><stop offset=".45" stop-color="#f2f6fa"/><stop offset="1" stop-color="#aebccb"/></linearGradient>
   </defs>`);
   const g = el('g', { opacity: .92 });
-  // 足元：3cm＝机の天板／1m＝教室の床（フローリング）／300m＝東京の街並み
-  const yG = Y(G), Wpx = stage.clientWidth, Hpx = stage.clientHeight, gh = Hpx - yG;
+  // 足元：3cm＝机の天板／1m＝教室の床／300m＝東京の街並み
+  // 地面は奥（画面の上）へ続く面として描き、上へ行くほど薄くして背景に溶かす
+  const yG = Y(G), Wpx = stage.clientWidth, Hpx = stage.clientHeight;
+  const yH = Math.max(0, Y(G + 1.4));                                        // 奥の端（ここで完全に消える）
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  bgSvg.querySelector('defs').insertAdjacentHTML('beforeend', `
+    <linearGradient id="gFade" gradientUnits="userSpaceOnUse" x1="0" y1="${yH}" x2="0" y2="${yG}">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".75" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
+    <mask id="mFade" maskUnits="userSpaceOnUse" x="0" y="0" width="${Wpx}" height="${Hpx}">
+      <rect x="0" y="${yH}" width="${Wpx}" height="${yG - yH}" fill="url(#gFade)"/>
+      <rect x="0" y="${yG}" width="${Wpx}" height="${Hpx - yG + 2}" fill="#fff"/></mask>`);
+  const gr = el('g', { mask: 'url(#mFade)' }); bgSvg.insertBefore(gr, g);   // 地面は物の後ろ
+  // 奥行き：奥の端 yH から手前へ、間隔が等比で広がる横線の位置
+  const depthRows = (n, last) => { const ys = []; for (let i = 0; i <= n; i++) ys.push(yH + (last - yH) * Math.pow(i / n, 1.8)); return ys; };
   if (SP.bg === 'eraser') {
-    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gDeskTop)' }, bgSvg);
-    for (let i = 0; i < 14; i++) {                                           // 木目（奥ほど細かく）
-      const t = Math.pow(i / 14, 1.6), y = yG + gh * t, w = rnd() * 0.4;
-      el('path', { d: `M0 ${y} C ${Wpx * .3} ${y - 6 + w * 10}, ${Wpx * .7} ${y + 6 - w * 10}, ${Wpx} ${y}`, stroke: '#8a5d30', 'stroke-width': 1 + t, opacity: .18, fill: 'none' }, bgSvg);
+    el('rect', { x: 0, y: yH, width: Wpx, height: Hpx - yH, fill: 'url(#gDeskTop)' }, gr);
+    for (const y of depthRows(26, Hpx)) {
+      const w = rnd();
+      el('path', { d: `M0 ${y} C ${Wpx * .3} ${y - 4 + w * 8}, ${Wpx * .7} ${y + 4 - w * 8}, ${Wpx} ${y}`, stroke: '#8a5d30', 'stroke-width': 1, opacity: .16, fill: 'none' }, gr);
     }
-    el('rect', { x: 0, y: yG, width: Wpx, height: 3, fill: '#fff', opacity: .35 }, bgSvg);
   } else if (SP.bg === 'desk') {
-    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gFloor)' }, bgSvg);
-    let y = yG, h = 6, row = 0;                                              // 板の列：手前ほど幅広（遠近）
-    while (y < Hpx) {
-      el('line', { x1: 0, y1: y, x2: Wpx, y2: y, stroke: '#7a5530', 'stroke-width': 1, opacity: .35 }, bgSvg);
-      const len = 260 + h * 8, off = (row % 3) * len / 3;
+    el('rect', { x: 0, y: yH, width: Wpx, height: Hpx - yH, fill: 'url(#gFloor)' }, gr);
+    const ys = depthRows(30, Hpx + 40);
+    ys.forEach((y, i) => {
+      if (i === ys.length - 1) return;
+      const h = Math.max(1, ys[i + 1] - y);
+      el('line', { x1: 0, y1: y, x2: Wpx, y2: y, stroke: '#7a5530', 'stroke-width': 1, opacity: .3 }, gr);
+      const len = Math.max(60, 120 + h * 14), off = (i % 3) * len / 3;                     // 板の継ぎ目（手前ほど長い）
       for (let x = -off; x < Wpx; x += len)
-        el('line', { x1: x, y1: y, x2: x, y2: y + h, stroke: '#7a5530', 'stroke-width': 1, opacity: .3 }, bgSvg);
-      if (row % 2) el('rect', { x: 0, y, width: Wpx, height: h, fill: '#fff', opacity: .05 }, bgSvg);
-      y += h; h *= 1.35; row++;
-    }
-    el('rect', { x: 0, y: yG - 10, width: Wpx, height: 10, fill: '#cfc8b8' }, bgSvg);   // 壁の巾木
+        el('line', { x1: x, y1: y, x2: x, y2: y + h, stroke: '#7a5530', 'stroke-width': 1, opacity: .25 }, gr);
+      if (i % 2) el('rect', { x: 0, y, width: Wpx, height: h, fill: '#fff', opacity: .05 }, gr);
+    });
   } else {
-    // 地面（アスファルト）と、ビルが立ち並ぶ街（高さ10〜60m、縮尺どおり）
-    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gCity)' }, bgSvg);
-    for (let y = yG + 8, h = 4; y < Hpx; y += h * 3, h *= 1.3)                // 道路の帯
-      el('rect', { x: 0, y, width: Wpx, height: h, fill: '#e8e6df', opacity: .35 }, bgSvg);
-    const city = el('g', { opacity: .9 }, bgSvg);
-    for (let x = -10; x < Wpx; ) {
-      const bw = (20 + rnd() * 50) * k * sc, bh = (10 + Math.pow(rnd(), 2) * 50) * k * sc;
-      const tone = 190 + rnd() * 35 | 0;
-      el('rect', { x, y: yG - bh, width: bw - 1, height: bh, fill: `rgb(${tone},${tone + 3},${tone + 8})` }, city);
-      if (bh > 6 && bw > 5) for (let wy = yG - bh + 2; wy < yG - 2; wy += 3)  // 窓の列
-        el('rect', { x: x + 1.5, y: wy, width: bw - 4, height: 1, fill: '#7f8ea0', opacity: .45 }, city);
-      x += bw;
-    }
+    el('rect', { x: 0, y: yH, width: Wpx, height: Hpx - yH, fill: 'url(#gCity)' }, gr);
+    // 奥から手前へ、ビルの列を重ねる（奥ほど小さく・淡く）。手前の列は縮尺どおり（高さ10〜60m）
+    const rows = depthRows(9, yG);
+    rows.forEach((base, i) => {
+      const f = Math.max(.12, (base - yH) / (yG - yH));                       // 奥行きによる縮み
+      const tone0 = 215 - 25 * f;
+      for (let x = -10 - rnd() * 40; x < Wpx; ) {
+        const bw = (20 + rnd() * 50) * k * sc * f, bh = (10 + Math.pow(rnd(), 2) * 50) * k * sc * f;
+        const tone = tone0 + rnd() * 25 | 0;
+        el('rect', { x, y: base - bh, width: Math.max(1, bw - 1), height: bh, fill: `rgb(${tone},${tone + 3},${tone + 8})` }, gr);
+        if (f > .6 && bh > 6 && bw > 5) for (let wy = base - bh + 2; wy < base - 2; wy += 3)
+          el('rect', { x: x + 1.5, y: wy, width: bw - 4, height: 1, fill: '#7f8ea0', opacity: .4 }, gr);
+        x += bw;
+      }
+    });
+    for (let y = yG + 8, h = 4; y < Hpx; y += h * 3, h *= 1.3)               // 手前の道路の帯
+      el('rect', { x: 0, y, width: Wpx, height: h, fill: '#e8e6df', opacity: .35 }, gr);
   }
-
   if (SP.bg === 'eraser') {
     // 縦に立てた消しゴム（高さ5.5cm・幅2.3cm）
     const L = 5.5 * k, T = 2.3 * k, x0 = X(R - T), x1 = X(R), y0 = Y(G + L), y1 = Y(G);
