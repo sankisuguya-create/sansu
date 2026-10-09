@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>球を切ってみよう</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="student">
+<div id="app">
+  <header>
+    <h1>球を切ってみよう</h1>
+    <span class="sp"></span>
+    <button class="tog" id="tReset">向きをもどす</button>
+  </header>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <svg id="overlay"></svg>
+    <div id="hint"></div>
+  </div>
+
+  <footer>
+    <div class="grp" id="gPos">
+      <label for="pos">切る位置</label>
+      <input id="pos" type="range" min="-97" max="97" step="1" value="40">
+      <div class="scale"><span>はし</span><span>まんなか</span><span>はし</span></div>
+    </div>
+    <div class="grp" id="gAng">
+      <label for="ang">かたむき</label>
+      <input id="ang" type="range" min="0" max="179" step="1" value="90">
+      <div class="scale"><span>たて</span><span>よこ</span><span>たて</span></div>
+    </div>
+    <div class="btns">
+      <button class="tog" id="tTwo" aria-pressed="false">2点で線<span class="lg">をひく</span></button>
+      <button class="primary" id="bCut">切る</button>
+      <button id="bFace" disabled>切り口を見る</button>
+      <button id="bBack" disabled>もとにもどす</button>
+    </div>
+  </footer>
+
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
