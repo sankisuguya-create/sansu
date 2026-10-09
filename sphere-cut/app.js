@@ -124,20 +124,23 @@ function drawBg() {
     // 奥行きは斜め投影：奥へ1cmにつき右へ0.4cm・上へ0.3cm
     const ox = 0.4 * k, oy = 0.3 * k;
     const poly = (pts, fill, extra = {}) => el('polygon', { points: pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' '), fill, ...extra }, g);
-    // えんぴつ（奥・6cm後ろ）
+    // えんぴつ（奥・6cm後ろ）：画面の右端から入り、先を球のほうへ向ける。
+    // 左向きに描いた図を、画面中央を軸に左右反転して右側に置く
     {
-      const dz = 6, d = 0.72 * k, by = G + dz * oy, tipEnd = R - 0.05, cone = 1.8 * k, lead = 0.35 * k;
+      const pg = el('g', { transform: `translate(${Wpx},0) scale(-1,1)` }, g);
+      const pp = (pts, fill, extra = {}) => el('polygon', { points: pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' '), fill, ...extra }, pg);
+      const dz = 6, d = 0.72 * k, by = G + dz * oy, tipEnd = -1.45, cone = 1.8 * k, lead = 0.35 * k;
       const xb = tipEnd - cone, xl = -halfW - 1;
-      el('ellipse', { cx: X((xl + tipEnd) / 2), cy: Y(by) + 3, rx: (tipEnd - xl) * sc / 2, ry: 5, fill: '#000', opacity: .16, filter: 'url(#soft)' }, g);
+      el('ellipse', { cx: X((xl + tipEnd) / 2), cy: Y(by) + 3, rx: (tipEnd - xl) * sc / 2, ry: 5, fill: '#000', opacity: .16, filter: 'url(#soft)' }, pg);
       const faces = [['#1f4a2e', 0, .33], ['#2f6b43', .33, .7], ['#4d8a5f', .7, 1]];   // 六角柱の見える3面（下・横・上）
-      for (const [c, f0, f1] of faces) poly([[xl, by + d * f0], [xb, by + d * f0], [xb, by + d * f1], [xl, by + d * f1]], c);
-      poly([[xl, by + d * .72], [xb, by + d * .72], [xb, by + d * .78], [xl, by + d * .78]], '#fff', { opacity: .25 });  // つや
-      poly([[xb, by], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd - lead, by + d * .5 - d * .12]], '#e3b77e');   // 削った木
-      poly([[xb, by + d * .5], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12]], '#c99659');
-      poly([[tipEnd - lead, by + d * .5 - d * .12], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd, by + d * .5]], '#2b2b2b');  // しん
+      for (const [c, f0, f1] of faces) pp([[xl, by + d * f0], [xb, by + d * f0], [xb, by + d * f1], [xl, by + d * f1]], c);
+      pp([[xl, by + d * .72], [xb, by + d * .72], [xb, by + d * .78], [xl, by + d * .78]], '#fff', { opacity: .25 });  // つや
+      pp([[xb, by], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd - lead, by + d * .5 - d * .12]], '#e3b77e');   // 削った木
+      pp([[xb, by + d * .5], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12]], '#c99659');
+      pp([[tipEnd - lead, by + d * .5 - d * .12], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd, by + d * .5]], '#2b2b2b');  // しん
       // 塗装と木のさかいめ（波形）
       let wave = `M${X(xb)} ${Y(by)}`; for (let i = 1; i <= 6; i++) wave += ` L${X(xb + (i % 2 ? .06 : 0))} ${Y(by + d * i / 6)}`;
-      el('path', { d: wave, stroke: '#1f4a2e', 'stroke-width': 2, fill: 'none' }, g);
+      el('path', { d: wave, stroke: '#1f4a2e', 'stroke-width': 2, fill: 'none' }, pg);
     }
     // 消しゴム（手前）
     {
@@ -170,11 +173,6 @@ function drawBg() {
     // 横の棒
     const yb = Y(G + 17 * k);
     el('rect', { x: X(R - W + 1.5 * k), y: yb, width: (W - 3 * k) * sc, height: 2 * k * sc, fill: 'url(#gSteelH)' }, g);
-    // 物入れ（スチール、手前が開いている）
-    const bx0 = X(R - W + 3 * k), bx1 = X(R - 3 * k), by0 = yTopB, by1 = Y(G + Ht - top - box);
-    el('rect', { x: bx0, y: by0, width: bx1 - bx0, height: by1 - by0, fill: 'url(#gBox)' }, g);
-    el('rect', { x: bx0 + 6, y: by0 + 4, width: bx1 - bx0 - 12, height: (by1 - by0) - 10, rx: 3, fill: '#3d4148' }, g);
-    el('rect', { x: bx0 + 10, y: by1 - 14, width: (bx1 - bx0) * .5, height: 8, fill: '#e9e4d8' }, g);   // 中のノート
     // 天板（木目）
     el('rect', { x: xl, y: yTop, width: xr - xl, height: yTopB - yTop, rx: 3, fill: 'url(#gWood)' }, g);
     for (let i = 1; i < 4; i++)
@@ -182,6 +180,24 @@ function drawBg() {
         stroke: '#8a5d30', 'stroke-width': 1, opacity: .35, fill: 'none' }, g);
     el('rect', { x: xl, y: yTop, width: xr - xl, height: 2, fill: '#fff', opacity: .5 }, g);
     el('rect', { x: xl, y: yTopB - 2, width: xr - xl, height: 2, fill: '#6d4a26', opacity: .5 }, g);
+    // 上ぐつ（右下・手前の床）：長さ20cm・高さ7cm。白い布、ゴムのつま先と底、甲のゴムバンド
+    {
+      const L = 20 * k, Hs = 7 * k, x1 = halfW - 0.12, x0 = x1 - L, by = G - 0.18;
+      const P = (x, y) => `${X(x)},${Y(y)}`;
+      el('ellipse', { cx: X((x0 + x1) / 2), cy: Y(by) + 2, rx: L * sc / 2 + 4, ry: 4, fill: '#000', opacity: .2, filter: 'url(#soft)' }, g);
+      // 布の本体（つま先は左、かかとは右）
+      el('path', { d: `M${P(x0 + L * .05, by + Hs * .15)} C ${P(x0, by + Hs * .5)}, ${P(x0 + L * .2, by + Hs * .62)}, ${P(x0 + L * .42, by + Hs * .7)}
+        L ${P(x0 + L * .62, by + Hs * .98)} L ${P(x1 - L * .04, by + Hs * .95)} C ${P(x1, by + Hs * .7)}, ${P(x1, by + Hs * .3)}, ${P(x1 - L * .02, by + Hs * .15)} Z`,
+        fill: '#f7f6f2', stroke: '#c9c6bd', 'stroke-width': 1.2 }, g);
+      el('path', { d: `M${P(x0 + L * .62, by + Hs * .98)} Q ${P(x0 + L * .78, by + Hs * .82)} ${P(x1 - L * .04, by + Hs * .95)}`, fill: '#e9e6de', stroke: '#c9c6bd', 'stroke-width': 1 }, g);   // はき口
+      // 甲のゴムバンド
+      el('path', { d: `M${P(x0 + L * .4, by + Hs * .7)} L ${P(x0 + L * .52, by + Hs * .86)} L ${P(x0 + L * .6, by + Hs * .2)} L ${P(x0 + L * .47, by + Hs * .2)} Z`, fill: '#e04a4a', opacity: .9 }, g);
+      // ゴムのつま先
+      el('path', { d: `M${P(x0 + L * .05, by + Hs * .15)} C ${P(x0, by + Hs * .45)}, ${P(x0 + L * .12, by + Hs * .58)}, ${P(x0 + L * .24, by + Hs * .56)} L ${P(x0 + L * .24, by + Hs * .15)} Z`, fill: '#e04a4a' }, g);
+      // 底（ゴム）
+      el('path', { d: `M${P(x0 + L * .03, by)} L ${P(x1, by)} L ${P(x1, by + Hs * .17)} L ${P(x0 + L * .05, by + Hs * .17)} Q ${P(x0, by + Hs * .08)} ${P(x0 + L * .03, by)} Z`, fill: '#d64040' }, g);
+      el('line', { x1: X(x0 + L * .05), y1: Y(by + Hs * .09), x2: X(x1), y2: Y(by + Hs * .09), stroke: '#fff', 'stroke-opacity': .5, 'stroke-width': 1 }, g);
+    }
   } else {
     const Hm = 634, cx = R - 0.34;
     const wAt = h => 0.68 * (1 - 0.72 * Math.pow(h / Hm, 0.8)) / 2;
