@@ -6,11 +6,72 @@
 <title>球を切ってみよう</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body data-mode="menu">
-<main style="max-width:560px;margin:0 auto;padding:48px 16px;display:flex;flex-direction:column;gap:20px">
-  <h1 style="margin:0">球を切ってみよう</h1>
-  <a href="student.html" style="display:block;padding:24px;border:3px solid var(--ink);border-radius:16px;color:var(--ink);text-decoration:none;font-size:24px;font-weight:700;background:var(--panel)">児童用<br><span style="font-size:15px;font-weight:400;color:var(--sub)">球を回して、いろいろな切り方を試す</span></a>
-  <a href="teacher.html" style="display:block;padding:24px;border:3px solid var(--ink);border-radius:16px;color:var(--ink);text-decoration:none;font-size:24px;font-weight:700;background:var(--panel)">教師用<br><span style="font-size:15px;font-weight:400;color:var(--sub)">切り口の記録と、スライドでのふり返りつき</span></a>
-</main>
+<body data-mode="teacher">
+<div id="app">
+  <header>
+    <h1>球を切ってみよう</h1>
+    <span class="sp"></span>
+    <button class="tog" id="tNum" aria-pressed="true">直径の長さ</button>
+    <button class="tog" id="bSlide">切り口スライド</button>
+    <button class="tog" id="tReset">向きをもどす</button>
+  </header>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <svg id="overlay"></svg>
+    <div id="hint"></div>
+  </div>
+
+  <footer>
+    <div class="grp" id="gPos">
+      <label for="pos">切る位置</label>
+      <input id="pos" type="range" min="-97" max="97" step="1" value="40" list="posTicks">
+      <datalist id="posTicks"><option value="0"></option></datalist>
+      <div class="scale"><span>はし</span><button type="button" class="mid" id="toCenter">まんなか</button><span>はし</span></div>
+    </div>
+    <div class="grp" id="gAng">
+      <label for="ang">かたむき</label>
+      <input id="ang" type="range" min="0" max="179" step="1" value="90">
+      <div class="scale"><span>たて</span><span>よこ</span><span>たて</span></div>
+    </div>
+    <div class="btns">
+      <button class="tog" id="tTwo" aria-pressed="false">2点で線<span class="lg">をひく</span></button>
+      <button class="primary" id="bCut">切る</button>
+      <button id="bFace" disabled>切り口を見る</button>
+      <button id="bBack" disabled>もとにもどす</button>
+    </div>
+  </footer>
+
+  <aside>
+    <div>
+      <h2>切り口</h2>
+      <svg id="cutView" viewBox="-110 -110 220 220"></svg>
+      <div id="cutText"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <h2>これまでの切り口<span style="font-weight:400;font-size:12px">（おすと同じ切り方にもどる）</span></h2>
+      <div id="hist"></div>
+    </div>
+  </aside>
+</div>
+
+
+<div id="slides" hidden>
+  <div class="sbar">
+    <h2 id="sTitle"></h2>
+    <span id="sCount"></span>
+    <button class="tog" id="sClose">とじる</button>
+  </div>
+  <div id="sBody">
+    <button class="snav" id="sPrev" aria-label="前へ">◀</button>
+    <div class="spanes">
+      <div class="pane"><h3>切り方</h3><svg id="sKnife" viewBox="-130 -130 260 260"></svg></div>
+      <div class="pane"><h3>切り口 <small style="font-weight:400;font-size:13px">点線＝球と同じ大きさ</small></h3><svg id="sCut" viewBox="-130 -130 260 260"></svg></div>
+    </div>
+    <button class="snav" id="sNext" aria-label="次へ">▶</button>
+  </div>
+  <div id="sThumbs"></div>
+</div>
+<script type="module" src="app.js"></script>
 </body>
 </html>

@@ -72,8 +72,6 @@ button:disabled{opacity:.35;cursor:default}
   .hi svg{width:44px;height:44px}
 }
 
-/* 児童用：右パネルなし */
-body[data-mode=student] #app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"head" "stage" "ctrl"}
 /* 教師用：履歴スライド */
 #slides{position:fixed;inset:0;background:var(--bg);z-index:10;display:flex;flex-direction:column;
   padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px)}
