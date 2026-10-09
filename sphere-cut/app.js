@@ -174,7 +174,6 @@ function drawBg() {
     const bx0 = X(R - W + 3 * k), bx1 = X(R - 3 * k), by0 = yTopB, by1 = Y(G + Ht - top - box);
     el('rect', { x: bx0, y: by0, width: bx1 - bx0, height: by1 - by0, fill: 'url(#gBox)' }, g);
     el('rect', { x: bx0 + 6, y: by0 + 4, width: bx1 - bx0 - 12, height: (by1 - by0) - 10, rx: 3, fill: '#3d4148' }, g);
-    el('rect', { x: bx0 + 10, y: by1 - 14, width: (bx1 - bx0) * .5, height: 8, fill: '#e9e4d8' }, g);   // 中のノート
     // 天板（木目）
     el('rect', { x: xl, y: yTop, width: xr - xl, height: yTopB - yTop, rx: 3, fill: 'url(#gWood)' }, g);
     for (let i = 1; i < 4; i++)
@@ -182,24 +181,29 @@ function drawBg() {
         stroke: '#8a5d30', 'stroke-width': 1, opacity: .35, fill: 'none' }, g);
     el('rect', { x: xl, y: yTop, width: xr - xl, height: 2, fill: '#fff', opacity: .5 }, g);
     el('rect', { x: xl, y: yTopB - 2, width: xr - xl, height: 2, fill: '#6d4a26', opacity: .5 }, g);
-    // 上ぐつ1足（右下・手前の床）：長さ20cm・高さ7cm。2つそろえて、斜め（つま先が左手前）に置く
+    // 右下の床：ドッジボール（直径20cm）となわとび（持ち手15cm、なわは輪にまとめる）
     {
-      const L = 20 * k * sc, Hs = 7 * k * sc;
-      const shoe = (cx, cy, shade) => {
-        // 横から見た上ぐつを、斜めに置いた見え方に近づける（横に縮め、傾ける）
-        const sg = el('g', { transform: `translate(${cx},${cy}) skewY(-14) scale(.8,1)` }, g);
-        const p = (x, y) => `${x * L},${-y * Hs}`;
-        el('ellipse', { cx: L * .5, cy: 2, rx: L * .55, ry: 4, fill: '#000', opacity: .2, filter: 'url(#soft)' }, sg);
-        el('path', { d: `M${p(.05, .15)} C ${p(0, .5)}, ${p(.2, .62)}, ${p(.42, .7)} L ${p(.62, .98)} L ${p(.96, .95)} C ${p(1, .7)}, ${p(1, .3)}, ${p(.98, .15)} Z`,
-          fill: shade ? '#ecebe6' : '#f8f7f3', stroke: '#c9c6bd', 'stroke-width': 1.2 }, sg);
-        el('path', { d: `M${p(.62, .98)} Q ${p(.78, .82)} ${p(.96, .95)}`, fill: '#e2dfd6', stroke: '#c9c6bd', 'stroke-width': 1 }, sg);   // はき口
-        el('path', { d: `M${p(.4, .7)} L ${p(.52, .86)} L ${p(.6, .2)} L ${p(.47, .2)} Z`, fill: '#e04a4a', opacity: .9 }, sg);           // 甲のゴム
-        el('path', { d: `M${p(.05, .15)} C ${p(0, .45)}, ${p(.12, .58)}, ${p(.24, .56)} L ${p(.24, .15)} Z`, fill: '#e04a4a' }, sg);      // つま先
-        el('path', { d: `M${p(.03, 0)} L ${p(1, 0)} L ${p(1, .17)} L ${p(.05, .17)} Q ${p(0, .08)} ${p(.03, 0)} Z`, fill: shade ? '#c63838' : '#d64040' }, sg);   // 底
-      };
-      const [bx, byy] = toPx(halfW - 0.62, G - 0.2);
-      shoe(bx + L * .1, byy - Hs * 1.05, true);                                   // 奥のくつ
-      shoe(bx, byy, false);                                                       // 手前のくつ
+      const [bx, by] = toPx(halfW - 0.5, G - 0.12);            // ボールの接地点
+      const br = 10 * k * sc;                                   // 半径10cm
+      bgSvg.querySelector('defs').insertAdjacentHTML('beforeend', `
+        <radialGradient id="gBall" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#ffd0d6"/><stop offset=".45" stop-color="#e8506a"/><stop offset="1" stop-color="#9c2a3e"/></radialGradient>`);
+      // なわとび（ボールの右手前）
+      const [rx, ry] = toPx(halfW - 0.22, G - 0.3);
+      const rw = 13 * k * sc, rh = rw * .32;
+      el('ellipse', { cx: rx, cy: ry + 2, rx: rw + 3, ry: rh + 2, fill: '#000', opacity: .15, filter: 'url(#soft)' }, g);
+      for (let i = 0; i < 4; i++)
+        el('ellipse', { cx: rx + i * 1.5 - 2, cy: ry - i * 1.2, rx: rw - i * 1.8, ry: rh - i * .7, fill: 'none', stroke: i % 2 ? '#2f7fd0' : '#3b8fe0', 'stroke-width': 2.4 }, g);
+      const hl = 15 * k * sc, hw = Math.max(3, 2.5 * k * sc);
+      for (const [hx, hy, a] of [[rx - rw * .9, ry + rh * .6, -20], [rx - rw * .2, ry + rh * 1.1, 8]]) {
+        const hg = el('g', { transform: `translate(${hx},${hy}) rotate(${a})` }, g);
+        el('rect', { x: -hl / 2, y: -hw / 2, width: hl, height: hw, rx: hw / 2, fill: '#f2c230', stroke: '#c79a12', 'stroke-width': 1 }, hg);
+        el('rect', { x: -hl / 2 + hl * .15, y: -hw / 2 + 1, width: hl * .6, height: hw * .3, rx: 1, fill: '#fff', opacity: .5 }, hg);
+      }
+      // ドッジボール
+      el('ellipse', { cx: bx, cy: by + 2, rx: br * 1.1, ry: br * .28, fill: '#000', opacity: .22, filter: 'url(#soft)' }, g);
+      el('circle', { cx: bx, cy: by - br, r: br, fill: 'url(#gBall)' }, g);
+      el('path', { d: `M${bx - br * .95} ${by - br * 1.15} Q ${bx} ${by - br * .55} ${bx + br * .95} ${by - br * 1.15}`, stroke: '#7d1f30', 'stroke-opacity': .5, 'stroke-width': 1.2, fill: 'none' }, g);   // 表面の溝
+      el('path', { d: `M${bx - br * .2} ${by - br * 1.98} Q ${bx + br * .35} ${by - br} ${bx - br * .2} ${by - br * .02}`, stroke: '#7d1f30', 'stroke-opacity': .45, 'stroke-width': 1.2, fill: 'none' }, g);
     }
   } else {
     const Hm = 634, cx = R - 0.34;
