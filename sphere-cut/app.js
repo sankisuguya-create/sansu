@@ -3,11 +3,12 @@ import * as THREE from './three.module.min.js';
 /* ---------- 定数 ---------- */
 // 選べる球（高さ＝直径）。lenText(k) は「高さ×k」の長さを表す文字列
 const SPHERES = [
-  { label: '3cm',  H: 3,   bg: 'eraser', text: k => { const v = Math.round(30 * k) / 10; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
-  { label: '1m',   H: 100, bg: 'desk',   text: k => { const v = Math.round(100 * k); return v === 100 ? '1m' : v + 'cm'; } },
-  { label: '300m', H: 300, bg: 'tree',   text: k => Math.round(300 * k) + 'm' },
+  { label: '3cm',  H: 3,   bg: 'eraser', text: k => { let v = Math.round(30 * k) / 10; if (k < 1 && v >= 3) v = 2.9; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
+  { label: '1m',   H: 100, bg: 'desk',   text: k => { let v = Math.round(100 * k); if (k < 1 && v >= 100) v = 99; return v === 100 ? '1m' : v + 'cm'; } },
+  { label: '300m', H: 300, bg: 'tree',   text: k => Math.min(Math.round(300 * k), k < 1 ? 299 : 300) + 'm' },
 ];
 let SP = SPHERES[0];
+// 中心を通らない切り口（k<1）は、四捨五入で高さと同じ数にならないよう1目もり下げる
 const lenText = k => SP.text(k);
 const SNAP = 0.08;             // まんなかへの吸着幅（球の半径の8%以内なら真ん中にそろえる）
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -386,9 +387,12 @@ function setTheta(t) {
   if (Math.cos(t - st.theta) < 0) { t += Math.PI; }
   st.theta = t; drawKnife();
 }
-function setD(d) {
+// snap：スライダーで動かしたときだけ真ん中に吸着させる。
+// 線のドラッグや2点指定では吸着させない（極を通るが中心を外れた線を、真ん中扱いにしないため）
+function setD(d, snap = false) {
   d = Math.max(-0.97, Math.min(0.97, d));
-  if (Math.abs(d) < SNAP) d = 0;
+  if (snap && Math.abs(d) < SNAP) d = 0;
+  else if (!snap && Math.abs(d) < 0.003) d = 0;
   st.d = d; drawKnife();
 }
 
@@ -436,7 +440,7 @@ for (const el of [cv, kHit, ...knobs]) {
   el.addEventListener('pointercancel', onUp);
 }
 
-$('pos').addEventListener('input', e => setD(+e.target.value / 100));
+$('pos').addEventListener('input', e => setD(+e.target.value / 100, true));
 $('toCenter').addEventListener('click', () => { if (!st.cut) setD(0); });
 $('ang').addEventListener('input', e => setTheta(+e.target.value * Math.PI / 180));
 
