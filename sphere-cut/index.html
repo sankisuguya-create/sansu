@@ -52,6 +52,32 @@ button:disabled{opacity:.35;cursor:default}
   aside>div{flex:1;min-width:0}
   #cutView{width:150px;height:150px}
 }
+/* スマホ縦向き：球を最大に、操作は2段に圧縮、記録は横スクロール */
+@media (max-width:600px){
+  #app{grid-template-rows:auto minmax(0,1fr) auto auto}
+  header{padding:8px 12px;gap:6px}
+  header h1{font-size:17px}
+  .tog{font-size:13px;min-height:36px;padding:4px 8px}
+  #hint{font-size:12px;left:12px;top:4px}
+  footer{gap:6px 12px;padding:8px 12px}
+  .grp{min-width:0;flex:1 1 40%}
+  .grp label{font-size:13px}
+  input[type=range]{height:30px}
+  .scale{font-size:11px}
+  .btns{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .btns button{font-size:13px;min-height:46px;padding:4px 2px;border-radius:10px;white-space:nowrap}
+  .lg{display:none}
+  aside{flex-direction:row;align-items:center;gap:4px;padding:4px 8px 8px}
+  aside>div:first-child{flex:0 0 auto}
+  aside h2{display:none}
+  #cutView{width:96px;height:96px}
+  #cutText{font-size:13px;min-height:0;margin:2px 0 0}
+  #cutText span{display:none}
+  #hist{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:72px;grid-template-rows:auto;
+    overflow-x:auto;overflow-y:hidden;padding:12px 4px 4px}
+  .hi{font-size:11px;padding:2px}
+  .hi svg{width:44px;height:44px}
+}
 </style>
 </head>
 <body>
@@ -81,7 +107,7 @@ button:disabled{opacity:.35;cursor:default}
       <div class="scale"><span>たて</span><span>よこ</span><span>たて</span></div>
     </div>
     <div class="btns">
-      <button class="tog" id="tTwo" aria-pressed="false">2点で線をひく</button>
+      <button class="tog" id="tTwo" aria-pressed="false">2点で線<span class="lg">をひく</span></button>
       <button class="primary" id="bCut">切る</button>
       <button id="bFace" disabled>切り口を見る</button>
       <button id="bBack" disabled>もとにもどす</button>
@@ -437,7 +463,7 @@ function renderHistory() {
     el.addEventListener('click', () => { if (st.cut) uncut(); st.theta = h.theta; setD(h.d); renderSide(h); });
     box.appendChild(el);
   });
-  box.scrollTop = box.scrollHeight;
+  box.scrollTop = box.scrollHeight; box.scrollLeft = box.scrollWidth;
 }
 
 /* ---------- 描画ループ（変化があるときだけ描く：4GB機対策） ---------- */
