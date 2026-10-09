@@ -178,27 +178,35 @@ const sphereGeo = (() => {
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const hue = ((Math.atan2(z, x) / (Math.PI * 2)) + 1) % 1;
-    c.setHSL(hue, 0.85, 0.52 + 0.18 * y);
+    // 彩度を軸からの距離 r に比例させる（色相環と同じ構造）。
+    // 極では色相が一点に集まるが、彩度も0に向かうので色の急変が起きず、円錐状に見えない。
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    c.setHSL(hue, 0.85 * r, 0.56 + 0.06 * y);
     col.push(c.r, c.g, c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
 })();
-const dotGeo = new THREE.SphereGeometry(0.085, 20, 14);
+// 極の印：球面に貼った平らな円（陰影なし）
+const dotGeo = new THREE.CircleGeometry(0.11, 40);
+const dotRingGeo = new THREE.RingGeometry(0.11, 0.13, 40);
 
 function makeMats(planes) {
   const o = planes ? { clippingPlanes: planes } : {};
   return {
     body: new THREE.MeshLambertMaterial({ vertexColors: true, ...o }),
-    white: new THREE.MeshLambertMaterial({ color: 0xffffff, ...o }),
-    black: new THREE.MeshLambertMaterial({ color: 0x151515, ...o }),
+    white: new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, ...o }),
+    black: new THREE.MeshBasicMaterial({ color: 0x151515, side: THREE.DoubleSide, ...o }),
   };
 }
 function buildBody(m) {
   const g = new THREE.Group();
   g.add(new THREE.Mesh(sphereGeo, m.body));
-  const w = new THREE.Mesh(dotGeo, m.white); w.position.set(0, 0.97, 0); g.add(w);
-  const b = new THREE.Mesh(dotGeo, m.black); b.position.set(0, -0.97, 0); g.add(b);
+  const mk = (mat, y) => {
+    const d = new THREE.Mesh(dotGeo, mat); d.position.set(0, y, 0); d.rotation.x = -Math.PI / 2; g.add(d);
+  };
+  mk(m.white, 1.003); mk(m.black, -1.003);
+  const ring = new THREE.Mesh(dotRingGeo, m.black); ring.position.set(0, 1.003, 0); ring.rotation.x = -Math.PI / 2; g.add(ring);
   return g;
 }
 const sphereGroup = buildBody(makeMats());
