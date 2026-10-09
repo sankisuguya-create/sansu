@@ -55,16 +55,54 @@ function drawBg() {
   bgSvg.insertAdjacentHTML('beforeend', `<defs>
     <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>
     <linearGradient id="gRubber" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1f0ec"/><stop offset="1" stop-color="#d9d7d0"/></linearGradient>
-    <linearGradient id="gSleeveV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3f8f6b"/><stop offset=".5" stop-color="#2f7a58"/><stop offset="1" stop-color="#215a41"/></linearGradient>
+    <linearGradient id="gSleeveV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a6fd0"/><stop offset=".5" stop-color="#2b5cc0"/><stop offset="1" stop-color="#1d4596"/></linearGradient>
     <linearGradient id="gWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2bd88"/><stop offset=".6" stop-color="#cfa067"/><stop offset="1" stop-color="#a97a46"/></linearGradient>
     <linearGradient id="gSteelV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d838b"/><stop offset=".35" stop-color="#d7dbe0"/><stop offset=".6" stop-color="#a3a9b1"/><stop offset="1" stop-color="#5f656d"/></linearGradient>
     <linearGradient id="gSteelH" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a9098"/><stop offset=".4" stop-color="#d9dde2"/><stop offset="1" stop-color="#6a7078"/></linearGradient>
     <linearGradient id="gBox" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa0a8"/><stop offset="1" stop-color="#70767e"/></linearGradient>
+    <linearGradient id="gDeskTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d4ae7a"/><stop offset="1" stop-color="#b8895a"/></linearGradient>
+    <linearGradient id="gFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8b98e"/><stop offset="1" stop-color="#c19a68"/></linearGradient>
+    <linearGradient id="gCity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9adb2"/><stop offset="1" stop-color="#8d9298"/></linearGradient>
     <linearGradient id="gTree" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9d4e0"/><stop offset=".45" stop-color="#f2f6fa"/><stop offset="1" stop-color="#aebccb"/></linearGradient>
   </defs>`);
   const g = el('g', { opacity: .92 });
-  // 床（机の上・地面）
-  el('line', { x1: 0, y1: Y(G), x2: X(R + 0.12), y2: Y(G), stroke: '#c9c2b2', 'stroke-width': 2 }, g);
+  // 足元：3cm＝机の天板／1m＝教室の床（フローリング）／300m＝東京の街並み
+  const yG = Y(G), Wpx = stage.clientWidth, Hpx = stage.clientHeight, gh = Hpx - yG;
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  if (SP.bg === 'eraser') {
+    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gDeskTop)' }, bgSvg);
+    for (let i = 0; i < 14; i++) {                                           // 木目（奥ほど細かく）
+      const t = Math.pow(i / 14, 1.6), y = yG + gh * t, w = rnd() * 0.4;
+      el('path', { d: `M0 ${y} C ${Wpx * .3} ${y - 6 + w * 10}, ${Wpx * .7} ${y + 6 - w * 10}, ${Wpx} ${y}`, stroke: '#8a5d30', 'stroke-width': 1 + t, opacity: .18, fill: 'none' }, bgSvg);
+    }
+    el('rect', { x: 0, y: yG, width: Wpx, height: 3, fill: '#fff', opacity: .35 }, bgSvg);
+  } else if (SP.bg === 'desk') {
+    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gFloor)' }, bgSvg);
+    let y = yG, h = 6, row = 0;                                              // 板の列：手前ほど幅広（遠近）
+    while (y < Hpx) {
+      el('line', { x1: 0, y1: y, x2: Wpx, y2: y, stroke: '#7a5530', 'stroke-width': 1, opacity: .35 }, bgSvg);
+      const len = 260 + h * 8, off = (row % 3) * len / 3;
+      for (let x = -off; x < Wpx; x += len)
+        el('line', { x1: x, y1: y, x2: x, y2: y + h, stroke: '#7a5530', 'stroke-width': 1, opacity: .3 }, bgSvg);
+      if (row % 2) el('rect', { x: 0, y, width: Wpx, height: h, fill: '#fff', opacity: .05 }, bgSvg);
+      y += h; h *= 1.35; row++;
+    }
+    el('rect', { x: 0, y: yG - 10, width: Wpx, height: 10, fill: '#cfc8b8' }, bgSvg);   // 壁の巾木
+  } else {
+    // 地面（アスファルト）と、ビルが立ち並ぶ街（高さ10〜60m、縮尺どおり）
+    el('rect', { x: 0, y: yG, width: Wpx, height: gh, fill: 'url(#gCity)' }, bgSvg);
+    for (let y = yG + 8, h = 4; y < Hpx; y += h * 3, h *= 1.3)                // 道路の帯
+      el('rect', { x: 0, y, width: Wpx, height: h, fill: '#e8e6df', opacity: .35 }, bgSvg);
+    const city = el('g', { opacity: .9 }, bgSvg);
+    for (let x = -10; x < Wpx; ) {
+      const bw = (20 + rnd() * 50) * k * sc, bh = (10 + Math.pow(rnd(), 2) * 50) * k * sc;
+      const tone = 190 + rnd() * 35 | 0;
+      el('rect', { x, y: yG - bh, width: bw - 1, height: bh, fill: `rgb(${tone},${tone + 3},${tone + 8})` }, city);
+      if (bh > 6 && bw > 5) for (let wy = yG - bh + 2; wy < yG - 2; wy += 3)  // 窓の列
+        el('rect', { x: x + 1.5, y: wy, width: bw - 4, height: 1, fill: '#7f8ea0', opacity: .45 }, city);
+      x += bw;
+    }
+  }
 
   if (SP.bg === 'eraser') {
     // 縦に立てた消しゴム（高さ5.5cm・幅2.3cm）
@@ -75,7 +113,7 @@ function drawBg() {
     // 紙のケース（下から20%〜86%）
     const s0 = Y(G + L * 0.86), s1 = Y(G + L * 0.2);
     el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: s1 - s0, rx: 3, fill: 'url(#gSleeveV)' }, g);
-    el('rect', { x: x0 - 2, y: s0 + (s1 - s0) * .38, width: x1 - x0 + 4, height: (s1 - s0) * .07, fill: '#fff', opacity: .85 }, g);
+    for (const f of [.12, .88]) el('rect', { x: x0 - 2, y: s0 + (s1 - s0) * f, width: x1 - x0 + 4, height: 2, fill: '#fff', opacity: .7 }, g);   // 細い白線（文字・ロゴなし）
     el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: 3, fill: '#000', opacity: .15 }, g);
     el('path', { d: `M${x0 + 4} ${y0 + 6} q ${(x1 - x0) * .3} -5 ${(x1 - x0) * .6} 0`, stroke: '#d8d5cd', 'stroke-width': 2, fill: 'none' }, g);   // 角のすりへり
   } else if (SP.bg === 'desk') {
