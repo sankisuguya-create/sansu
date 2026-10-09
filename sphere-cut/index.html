@@ -368,6 +368,19 @@ function makeCap(r) {
   const c = new THREE.Mesh(new THREE.CircleGeometry(0.035, 20), markMat); c.position.z = 0.003; g.add(c);
   const bar = new THREE.Mesh(new THREE.PlaneGeometry(2 * r * 0.97, 0.025), markMat);
   bar.position.z = 0.003; bar.userData.isBar = true; g.add(bar);
+  // 直径の長さを切り口に直接書く（「直径の長さ」ボタンで表示）
+  const cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 192;
+  const ctx = cvs.getContext('2d');
+  ctx.font = 'bold 140px "BIZ UDPGothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 18; ctx.strokeStyle = '#f3efe6'; ctx.lineJoin = 'round';
+  const txt = fmt(2 * r * REAL_R) + 'cm';
+  ctx.strokeText(txt, 256, 100); ctx.fillStyle = '#1f4fd1'; ctx.fillText(txt, 256, 100);
+  const tex = new THREE.CanvasTexture(cvs); tex.colorSpace = THREE.SRGBColorSpace;
+  const lw = Math.max(0.42, Math.min(0.95, r * 1.1)), lh = lw * 192 / 512;
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+  label.position.set(0, lh * 0.5 + 0.02, 0.004); label.userData.isBar = true; label.userData.isLabel = true; g.add(label);
   return g;
 }
 
@@ -383,8 +396,13 @@ function doCut() {
     inner.quaternion.copy(q); hg.add(inner);
     const cap = makeCap(r);
     const out = n.clone().multiplyScalar(-sgn);           // 切り口の外向き
-    cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), out);
+    // 文字が正面から読める向きにそろえる（x軸＝包丁の線の向き）
+    const xAx = new THREE.Vector3(n.y, -n.x, 0);
+    const yAx = new THREE.Vector3().crossVectors(out, xAx);
+    cap.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAx, yAx, out));
     cap.position.copy(n).multiplyScalar(d).addScaledVector(out, 0.001);
+    // 下側の半分は、上の半分に隠れないよう数値を直径の線の下に書く
+    if (sgn < 0) cap.children.forEach(o => { if (o.userData.isLabel) o.position.y *= -1; });
     hg.add(cap); group.add(hg);
     return { sgn, plane, hg, cap };
   });
