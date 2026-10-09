@@ -1,7 +1,14 @@
 import * as THREE from './three.module.min.js';
 
 /* ---------- 定数 ---------- */
-const REAL_R = 4;              // 球の半径 4cm（教科書の直径8cmに合わせる）
+// 選べる球（高さ＝直径）。lenText(k) は「高さ×k」の長さを表す文字列
+const SPHERES = [
+  { label: '3cm',  text: k => { const v = Math.round(30 * k) / 10; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
+  { label: '1m',   text: k => { const v = Math.round(100 * k); return v === 100 ? '1m' : v + 'cm'; } },
+  { label: '200m', text: k => Math.round(200 * k) + 'm' },
+];
+let SP = SPHERES[0];
+const lenText = k => SP.text(k);
 const SNAP = 0.04;             // まんなかへの吸着幅
 const SVGNS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
@@ -108,6 +115,7 @@ function svgEl(tag, attrs, parent) {
   if (parent) parent.appendChild(el);
   return el;
 }
+const hG = svgEl('g', { 'pointer-events': 'none' }, overlay);   // 高さの点線
 const kG = svgEl('g', {}, overlay);
 const kShadow = svgEl('line', { stroke: '#fff', 'stroke-width': 9, 'stroke-linecap': 'round', opacity: .8 }, kG);
 const kLine = svgEl('line', { stroke: '#111', 'stroke-width': 4, 'stroke-dasharray': '14 8', 'stroke-linecap': 'round' }, kG);
@@ -120,10 +128,30 @@ const knobs = [0, 1].map(() => {
 });
 const twoG = svgEl('g', {}, overlay);
 
+function drawHeight() {
+  hG.innerHTML = '';
+  const c = st.cut;
+  // 球のまま、または「切り口を見る」で正面を向けた後だけ表示（どちらも画面上の球の輪郭は半径1）
+  if (c && !(c.face && !c.qTarget)) return;
+  const xL = -Math.min(halfW - 0.12, 1.62);
+  const [ax, top] = toPx(xL, 1), [, bot] = toPx(xL, -1), [cx] = toPx(0, 0);
+  const col = '#1f4fd1';
+  for (const y of [top, bot])
+    svgEl('line', { x1: ax - 10, y1: y, x2: cx, y2: y, stroke: col, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, hG);
+  svgEl('line', { x1: ax, y1: top, x2: ax, y2: bot, stroke: col, 'stroke-width': 3, 'stroke-dasharray': '10 6' }, hG);
+  for (const [y, s] of [[top, 1], [bot, -1]])
+    svgEl('path', { d: `M${ax - 8} ${y + s * 12} L${ax} ${y} L${ax + 8} ${y + s * 12}`, fill: 'none', stroke: col, 'stroke-width': 3 }, hG);
+  const mid = (top + bot) / 2;
+  svgEl('rect', { x: ax - 18, y: mid - 62, width: 36, height: 124, rx: 8, fill: '#f6f4ef' }, hG);
+  const t = svgEl('text', { x: ax, y: mid, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'writing-mode': 'vertical-rl',
+    'font-size': 22, 'font-weight': 700, fill: col }, hG);
+  t.textContent = '高さ ' + SP.label;
+}
 function drawKnife() {
+  drawHeight();
   if (!stage.clientWidth) return;
   const n = nVec(), m = [-n.y, n.x];
-  const cx = n.x * st.d, cy = n.y * st.d, L = 1.45;
+  const cx = n.x * st.d, cy = n.y * st.d, L = 1.25;
   const a = toPx(cx - m[0] * L, cy - m[1] * L), b = toPx(cx + m[0] * L, cy + m[1] * L);
   for (const l of [kShadow, kLine, kHit]) {
     l.setAttribute('x1', a[0]); l.setAttribute('y1', a[1]);
@@ -245,7 +273,7 @@ function makeCap(r) {
   ctx.font = 'bold 140px "BIZ UDPGothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.lineWidth = 18; ctx.strokeStyle = '#f3efe6'; ctx.lineJoin = 'round';
-  const txt = fmt(2 * r * REAL_R) + 'cm';
+  const txt = lenText(r);
   ctx.strokeText(txt, 256, 100); ctx.fillStyle = '#1f4fd1'; ctx.fillText(txt, 256, 100);
   const tex = new THREE.CanvasTexture(cvs); tex.colorSpace = THREE.SRGBColorSpace;
   const lw = Math.max(0.42, Math.min(0.95, r * 1.1)), lh = lw * 192 / 512;
@@ -283,7 +311,7 @@ function doCut() {
   st.cut = { n, d, r, group, halves, s: 0, sTarget: 0.5, qTarget: tilt, tilt, face: false };
   applyNumVisibility();
 
-  const rec = { theta: st.theta, d, diam: 2 * r * REAL_R };
+  const rec = { theta: st.theta, d, k: r };   // k = 切り口の直径 ÷ 球の高さ
   st.history.push(rec);
   renderSide(rec); renderHistory();
   setButtons(); drawKnife(); dirty = true;
@@ -340,22 +368,22 @@ function renderSide(rec) {
   const s = $('cutView'); if (!s) return; s.innerHTML = '';
   svgEl('circle', { r: 100, fill: 'none', stroke: '#b9b3a6', 'stroke-width': 2, 'stroke-dasharray': '6 5' }, s);
   if (!rec) { $('cutText').textContent = ''; svgEl('text', { y: 6, 'text-anchor': 'middle', 'font-size': 15, fill: '#5b6270' }, s).textContent = 'まだ切っていません'; return; }
-  const r = rec.diam / (2 * REAL_R) * 100;
+  const r = rec.k * 100;
   svgEl('circle', { r, fill: '#f3efe6', stroke: '#333', 'stroke-width': 3 }, s);
   svgEl('circle', { r: 4, fill: '#1f4fd1' }, s);
   if (st.showNum) {
     svgEl('line', { x1: -r, x2: r, stroke: '#1f4fd1', 'stroke-width': 3 }, s);
-    $('cutText').innerHTML = `直径 ${fmt(rec.diam)}cm <span style="font-size:13px;color:#5b6270;font-weight:400">（球の直径 ${2 * REAL_R}cm＝点線）</span>`;
+    $('cutText').innerHTML = `直径 ${lenText(rec.k)} <span style="font-size:13px;color:#5b6270;font-weight:400">（球の高さ ${SP.label}＝点線）</span>`;
   } else {
     $('cutText').innerHTML = '<span style="font-size:13px;color:#5b6270;font-weight:400">点線＝球と同じ大きさの円</span>';
   }
 }
 function renderHistory() {
   const box = $('hist'); if (!box) return; box.innerHTML = '';
-  const max = Math.max(...st.history.map(h => h.diam));
+  const max = Math.max(...st.history.map(h => h.k));
   st.history.forEach((h, i) => {
     const el = document.createElement('div');
-    el.className = 'hi' + (st.history.length > 1 && max - h.diam < 0.05 ? ' max' : '');
+    el.className = 'hi' + (st.history.length > 1 && max - h.k < 0.006 ? ' max' : '');
     const s = svgEl('svg', { width: 64, height: 64, viewBox: '-34 -34 68 68' });
     svgEl('circle', { r: 28, fill: '#fff', stroke: '#888', 'stroke-width': 1.5 }, s);
     const nx = Math.cos(h.theta), ny = -Math.sin(h.theta);  // SVGはyが下向き
@@ -364,10 +392,10 @@ function renderHistory() {
     el.appendChild(s);
     const s2 = svgEl('svg', { width: 64, height: 64, viewBox: '-32 -32 64 64' });
     svgEl('circle', { r: 28, fill: 'none', stroke: '#ccc', 'stroke-dasharray': '3 3' }, s2);
-    svgEl('circle', { r: h.diam / (2 * REAL_R) * 28, fill: '#f3efe6', stroke: '#333', 'stroke-width': 2 }, s2);
+    svgEl('circle', { r: h.k * 28, fill: '#f3efe6', stroke: '#333', 'stroke-width': 2 }, s2);
     el.appendChild(s2);
     const t = document.createElement('div');
-    t.textContent = st.showNum ? `${i + 1}．${fmt(h.diam)}cm` : `${i + 1}`;
+    t.textContent = st.showNum ? `${i + 1}．${lenText(h.k)}` : `${i + 1}`;
     el.appendChild(t);
     el.addEventListener('click', () => { if (st.cut) uncut(); st.theta = h.theta; setD(h.d); renderSide(h); });
     box.appendChild(el);
@@ -399,11 +427,38 @@ function tick() {
       c.group.updateMatrixWorld(true);
     }
   }
-  if (dirty) { renderer.render(scene, cam); dirty = false; }
+  if (dirty) { renderer.render(scene, cam); dirty = false; if (st.cut) drawHeight(); }
   requestAnimationFrame(tick);
 }
 
 new ResizeObserver(resize).observe(stage);
+/* ---------- 最初の画面：球をえらぶ ---------- */
+const picker = document.createElement('div'); picker.id = 'picker';
+picker.innerHTML = '<h2>どの球を切る？</h2><div class="pk-row"></div>';
+SPHERES.forEach((sp, i) => {
+  const b = document.createElement('button'); b.className = 'pk';
+  b.innerHTML = `<svg viewBox="-80 -64 160 128" aria-hidden="true">
+    <defs><radialGradient id="pg${i}" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#d9c27a"/><stop offset="1" stop-color="#6f8f9a"/></radialGradient></defs>
+    <line x1="-62" y1="-50" x2="0" y2="-50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
+    <line x1="-62" y1="50" x2="0" y2="50" stroke="#1f4fd1" stroke-width="2" stroke-dasharray="4 4"/>
+    <circle cx="8" r="50" fill="url(#pg${i})" stroke="#333" stroke-width="2"/>
+    <line x1="-58" y1="-50" x2="-58" y2="50" stroke="#1f4fd1" stroke-width="3" stroke-dasharray="7 5"/>
+  </svg><span class="pk-n">${i + 1}</span><span class="pk-t">高さ ${sp.label}</span>`;
+  b.addEventListener('click', () => chooseSphere(sp));
+  picker.querySelector('.pk-row').appendChild(b);
+});
+document.body.appendChild(picker);
+function chooseSphere(sp) {
+  SP = sp; if (st.cut) uncut();
+  st.history = []; renderSide(); renderHistory();
+  $('spTag').textContent = '高さ ' + sp.label + ' の球';
+  picker.hidden = true; drawKnife(); dirty = true;
+}
+const tag = document.createElement('span'); tag.id = 'spTag'; tag.className = 'sptag';
+const pickBtn = document.createElement('button'); pickBtn.className = 'tog'; pickBtn.id = 'bPick'; pickBtn.textContent = '球をえらぶ';
+pickBtn.addEventListener('click', () => { picker.hidden = false; });
+const hd = document.querySelector('header'); hd.insertBefore(tag, hd.querySelector('.sp')); hd.insertBefore(pickBtn, $('tReset'));
+
 resize(); setButtons(); renderSide(); updateHint();
 requestAnimationFrame(tick);
 
@@ -430,14 +485,14 @@ if (TEACHER) {
     svgEl('line', { x1: cx - mx * half, y1: cy - my * half, x2: cx + mx * half, y2: cy + my * half,
       stroke: 'var(--accent)', 'stroke-width': 6, 'stroke-linecap': 'round' }, sv1);
     // 切り口：球と同じ大きさの円（点線）と、切り口の円＋直径
-    const r = h.diam / (2 * REAL_R) * R;
+    const r = h.k * R;
     svgEl('circle', { r: R, fill: 'none', stroke: 'var(--sub)', 'stroke-width': 2, 'stroke-dasharray': '6 6' }, sv2);
     svgEl('circle', { r, fill: 'var(--cap)', stroke: 'var(--ink)', 'stroke-width': 3 }, sv2);
     svgEl('line', { x1: -r, x2: r, stroke: 'var(--accent)', 'stroke-width': 4 }, sv2);
     svgEl('circle', { r: 4, fill: 'var(--accent)' }, sv2);
     const t = svgEl('text', { y: -14, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700, fill: 'var(--accent)',
       stroke: 'var(--cap)', 'stroke-width': 6, 'paint-order': 'stroke' }, sv2);
-    t.textContent = fmt(h.diam) + 'cm';
+    t.textContent = lenText(h.k);
     const thumbs = $('sThumbs'); thumbs.innerHTML = '';
     st.history.forEach((x, i) => {
       const b = document.createElement('button'); b.className = 'th' + (i === idx ? ' on' : '');

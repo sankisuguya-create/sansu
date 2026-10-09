@@ -95,3 +95,31 @@ body[data-mode=student] #app{grid-template-columns:1fr;grid-template-rows:auto m
   .snav{min-width:40px;font-size:20px}
   .sbar h2{font-size:18px}
 }
+
+/* 球をえらぶ画面 */
+#picker{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+  padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+#picker[hidden]{display:none}
+#picker h2{margin:0;font-size:32px}
+.pk-row{display:grid;grid-template-columns:repeat(3,minmax(0,240px));gap:20px;width:100%;justify-content:center}
+.pk{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 12px;border-radius:18px;background:var(--panel);min-height:0}
+.pk svg{width:100%;max-width:200px}
+.pk-n{font-size:20px;color:var(--sub)}
+.pk-t{font-size:28px;font-weight:700;color:var(--accent)}
+.sptag{font-size:15px;font-weight:700;color:var(--accent);border:2px solid var(--accent);border-radius:999px;padding:4px 12px;white-space:nowrap}
+@media (max-width:600px){
+  #picker h2{font-size:24px}
+  .pk-row{grid-template-columns:1fr;gap:10px;max-width:340px}
+  .pk{flex-direction:row;padding:8px 14px;gap:12px}
+  .pk svg{width:110px}
+  .pk-t{font-size:22px}
+  .sptag{font-size:12px;padding:2px 8px}
+}
+
+header{flex-wrap:wrap}
+header button{white-space:nowrap}
+@media (max-width:600px){
+  header h1 span{display:none}
+  header .sp{display:none}
+  #hint{display:none}
+}
