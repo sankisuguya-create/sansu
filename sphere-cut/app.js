@@ -434,7 +434,7 @@ function drawKnife() {
   kG.style.display = st.cut ? 'none' : '';
   $('pos').value = Math.round(st.d * 100);
   let deg = Math.round(st.theta * 180 / Math.PI) % 180; if (deg < 0) deg += 180;
-  $('ang').value = deg;
+  if ($('ang')) $('ang').value = deg;
   updateHint();
 }
 function setTheta(t) {
@@ -497,10 +497,10 @@ for (const el of [cv, kHit, ...knobs]) {
 
 $('pos').addEventListener('input', e => setD(+e.target.value / 100, true));
 $('toCenter').addEventListener('click', () => { if (!st.cut) setD(0); });
-$('ang').addEventListener('input', e => setTheta(+e.target.value * Math.PI / 180));
+if ($('ang')) $('ang').addEventListener('input', e => setTheta(+e.target.value * Math.PI / 180));
 
 /* 2点で線をひく */
-$('tTwo').addEventListener('click', () => {
+if ($('tTwo')) $('tTwo').addEventListener('click', () => {
   st.twoMode = !st.twoMode; st.twoPts = [];
   $('tTwo').setAttribute('aria-pressed', st.twoMode);
   twoG.innerHTML = ''; updateHint();
@@ -618,7 +618,7 @@ function setButtons() {
   const cut = !!st.cut;
   $('bCut').disabled = cut; $('bFace').disabled = !cut; $('bBack').disabled = !cut;
   $('bFace').textContent = '切り口を見る';
-  for (const id of ['gPos', 'gAng', 'tTwo']) $(id).classList.toggle('disabled', cut);
+  for (const id of ['gPos', 'gAng', 'tTwo']) $(id)?.classList.toggle('disabled', cut);
 }
 $('bCut').addEventListener('click', doCut);
 $('bBack').addEventListener('click', uncut);

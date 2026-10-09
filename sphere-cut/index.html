@@ -11,7 +11,6 @@
   <header>
     <h1>球を切ってみよう</h1>
     <span class="sp"></span>
-    <button class="tog" id="tNum" aria-pressed="true">直径の長さ</button>
     <button class="tog" id="bSlide">切り口スライド</button>
     <button class="tog" id="tReset">向きをもどす</button>
   </header>
@@ -29,13 +28,7 @@
       <datalist id="posTicks"><option value="0"></option></datalist>
       <div class="scale"><span>はし</span><button type="button" class="mid" id="toCenter">まんなか</button><span>はし</span></div>
     </div>
-    <div class="grp" id="gAng">
-      <label for="ang">かたむき</label>
-      <input id="ang" type="range" min="0" max="179" step="1" value="90">
-      <div class="scale"><span>たて</span><span>よこ</span><span>たて</span></div>
-    </div>
     <div class="btns">
-      <button class="tog" id="tTwo" aria-pressed="false">2点で線<span class="lg">をひく</span></button>
       <button class="primary" id="bCut">切る</button>
       <button id="bFace" disabled>切り口を見る</button>
       <button id="bBack" disabled>もとにもどす</button>

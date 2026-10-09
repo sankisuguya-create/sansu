@@ -57,7 +57,7 @@ button:disabled{opacity:.35;cursor:default}
   .grp label{font-size:13px}
   input[type=range]{height:30px}
   .scale{font-size:11px}
-  .btns{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .btns{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .btns button{font-size:13px;min-height:46px;padding:4px 2px;border-radius:10px;white-space:nowrap}
   .lg{display:none}
   aside{flex-direction:row;align-items:center;gap:4px;padding:4px 8px 8px}
