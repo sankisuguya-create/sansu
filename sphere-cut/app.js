@@ -40,15 +40,15 @@ dl.position.set(1.2, 1.6, 2.5); scene.add(dl);
 let halfW = 1, halfH = 1;
 /* ---------- 背景の比較物（画面左端に見切れる形で、球と同じ縮尺） ----------
    球の高さ＝画面上の2単位。k＝1cm（または1m）あたりの単位数。地面＝球の下端 y=-1。
-   寸法の目安：消しゴム（縦置き）高さ5.5cm・幅2.3cm／児童机（JIS 4号）高さ64cm・幅60cm／東京スカイツリー 高さ634m・脚部の幅 約68m */
+   寸法の目安：消しゴム 5.5×2.3×1.1cm（倒して置く）・えんぴつ 太さ約0.7cm／児童机（JIS 4号）高さ64cm・幅60cm／東京スカイツリー 高さ634m・脚部の幅 約68m */
 const bgSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 bgSvg.id = 'bg'; stage.insertBefore(bgSvg, stage.firstChild);
 function drawBg() {
   bgSvg.innerHTML = '';
   if (!stage.clientWidth) return;
   const k = 2 / SP.H, G = -1;
-  const W0 = { eraser: 2.3, desk: 60, tree: 68 }[SP.bg] * k;
-  const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.6, desk: 0.5, tree: 0.75 }[SP.bg]);
+  const W0 = { eraser: 5.5, desk: 60, tree: 68 }[SP.bg] * k;
+  const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.5, desk: 0.5, tree: 0.75 }[SP.bg]);
   const sc = toPx(1, 0)[0] - toPx(0, 0)[0];             // 1単位あたりのpx
   const X = x => toPx(x, 0)[0], Y = y => toPx(0, y)[1];
   const el = (t, a, p = bgSvg) => svgEl(t, a, p);
@@ -119,17 +119,45 @@ function drawBg() {
       el('rect', { x: 0, y, width: Wpx, height: h, fill: '#e8e6df', opacity: .35 }, gr);
   }
   if (SP.bg === 'eraser') {
-    // 縦に立てた消しゴム（高さ5.5cm・幅2.3cm）
-    const L = 5.5 * k, T = 2.3 * k, x0 = X(R - T), x1 = X(R), y0 = Y(G + L), y1 = Y(G);
-    el('ellipse', { cx: (x0 + x1) / 2, cy: y1 + 2, rx: (x1 - x0) / 2 + 6, ry: 6, fill: '#000', opacity: .18, filter: 'url(#soft)' }, g);
-    el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: (x1 - x0) * .08, fill: 'url(#gRubber)', stroke: '#c8c5bc', 'stroke-width': 1.5 }, g);
-    el('rect', { x: x0 + (x1 - x0) * .12, y: y0 + 4, width: (x1 - x0) * .12, height: y1 - y0 - 8, rx: 4, fill: '#fff', opacity: .8 }, g);   // つや
-    // 紙のケース（下から20%〜86%）
-    const s0 = Y(G + L * 0.86), s1 = Y(G + L * 0.2);
-    el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: s1 - s0, rx: 3, fill: 'url(#gSleeveV)' }, g);
-    for (const f of [.12, .88]) el('rect', { x: x0 - 2, y: s0 + (s1 - s0) * f, width: x1 - x0 + 4, height: 2, fill: '#fff', opacity: .7 }, g);   // 細い白線（文字・ロゴなし）
-    el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: 3, fill: '#000', opacity: .15 }, g);
-    el('path', { d: `M${x0 + 4} ${y0 + 6} q ${(x1 - x0) * .3} -5 ${(x1 - x0) * .6} 0`, stroke: '#d8d5cd', 'stroke-width': 2, fill: 'none' }, g);   // 角のすりへり
+    // 机の上に倒れた消しゴムと、奥に置いたえんぴつ（どちらも球と同じ縮尺）
+    // 消しゴム 長さ5.5cm・幅2.3cm・厚さ1.1cm／えんぴつ 太さ約0.7cm・削った部分約1.8cm
+    // 奥行きは斜め投影：奥へ1cmにつき右へ0.4cm・上へ0.3cm
+    const ox = 0.4 * k, oy = 0.3 * k;
+    const poly = (pts, fill, extra = {}) => el('polygon', { points: pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' '), fill, ...extra }, g);
+    // えんぴつ（奥・6cm後ろ）
+    {
+      const dz = 6, d = 0.72 * k, by = G + dz * oy, tipEnd = R - 0.05, cone = 1.8 * k, lead = 0.35 * k;
+      const xb = tipEnd - cone, xl = -halfW - 1;
+      el('ellipse', { cx: X((xl + tipEnd) / 2), cy: Y(by) + 3, rx: (tipEnd - xl) * sc / 2, ry: 5, fill: '#000', opacity: .16, filter: 'url(#soft)' }, g);
+      const faces = [['#1f4a2e', 0, .33], ['#2f6b43', .33, .7], ['#4d8a5f', .7, 1]];   // 六角柱の見える3面（下・横・上）
+      for (const [c, f0, f1] of faces) poly([[xl, by + d * f0], [xb, by + d * f0], [xb, by + d * f1], [xl, by + d * f1]], c);
+      poly([[xl, by + d * .72], [xb, by + d * .72], [xb, by + d * .78], [xl, by + d * .78]], '#fff', { opacity: .25 });  // つや
+      poly([[xb, by], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd - lead, by + d * .5 - d * .12]], '#e3b77e');   // 削った木
+      poly([[xb, by + d * .5], [xb, by + d], [tipEnd - lead, by + d * .5 + d * .12]], '#c99659');
+      poly([[tipEnd - lead, by + d * .5 - d * .12], [tipEnd - lead, by + d * .5 + d * .12], [tipEnd, by + d * .5]], '#2b2b2b');  // しん
+      // 塗装と木のさかいめ（波形）
+      let wave = `M${X(xb)} ${Y(by)}`; for (let i = 1; i <= 6; i++) wave += ` L${X(xb + (i % 2 ? .06 : 0))} ${Y(by + d * i / 6)}`;
+      el('path', { d: wave, stroke: '#1f4a2e', 'stroke-width': 2, fill: 'none' }, g);
+    }
+    // 消しゴム（手前）
+    {
+      const L = 5.5 * k, H = 1.1 * k, D = 2.3 * k, dx = D / k * ox, dy = D / k * oy;
+      const x1 = R - dx, x0 = x1 - L;
+      el('ellipse', { cx: X((x0 + R) / 2), cy: Y(G) + 3, rx: (R - x0) * sc / 2 + 6, ry: 7, fill: '#000', opacity: .2, filter: 'url(#soft)' }, g);
+      poly([[x0, G], [x1, G], [x1, G + H], [x0, G + H]], 'url(#gRubber)', { stroke: '#c8c5bc', 'stroke-width': 1 });   // 手前の面
+      poly([[x0, G + H], [x1, G + H], [x1 + dx, G + H + dy], [x0 + dx, G + H + dy]], '#fbfaf7', { stroke: '#d6d3cb', 'stroke-width': 1 });   // 上の面
+      poly([[x1, G], [x1 + dx, G + dy], [x1 + dx, G + H + dy], [x1, G + H]], '#dcd9d1', { stroke: '#c8c5bc', 'stroke-width': 1 });   // 右の面
+      // 紙のケース（長さの14%〜80%）
+      const s0 = x0 + L * .14, s1 = x0 + L * .8, pad = 0.02;
+      poly([[s0, G - pad], [s1, G - pad], [s1, G + H + pad], [s0, G + H + pad]], '#2b5cc0');
+      poly([[s0, G + H + pad], [s1, G + H + pad], [s1 + dx, G + H + dy + pad], [s0 + dx, G + H + dy + pad]], '#4a7ae0');
+      for (const f of [.15, .85]) {
+        const yy = G + H * f;
+        poly([[s0, yy], [s1, yy], [s1, yy + .015], [s0, yy + .015]], '#fff', { opacity: .7 });
+      }
+      poly([[s0 + dx * .5, G + H + dy * .5 + pad], [s1 + dx * .5, G + H + dy * .5 + pad], [s1 + dx * .5, G + H + dy * .5 + pad + .015], [s0 + dx * .5, G + H + dy * .5 + pad + .015]], '#fff', { opacity: .6 });
+      poly([[x0 + 0.03, G + H * .7], [x1 - 0.03, G + H * .7], [x1 - 0.03, G + H * .82], [x0 + 0.03, G + H * .82]], '#fff', { opacity: .5 });   // つや
+    }
   } else if (SP.bg === 'desk') {
     const W = 60 * k, Ht = 64 * k, top = 2.5 * k, leg = 2.6 * k, box = 13 * k;
     const xl = X(R - W), xr = X(R), yTop = Y(G + Ht), yTopB = Y(G + Ht - top), yG = Y(G);
