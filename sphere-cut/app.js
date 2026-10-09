@@ -46,37 +46,87 @@ function drawBg() {
   bgSvg.innerHTML = '';
   if (!stage.clientWidth) return;
   const k = 2 / SP.H, G = -1;
-  // 物の右端の位置：画面左端から物の幅の一部だけが見える（見切れる）ようにし、球には近づけすぎない
   const W0 = { eraser: 5.5, desk: 60, tree: 68 }[SP.bg] * k;
   const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.45, desk: 0.5, tree: 0.75 }[SP.bg]);
-  const P = (x, y) => toPx(x, y).map(v => v.toFixed(1)).join(',');
-  const poly = (pts, attrs = {}) => svgEl('polygon', { points: pts.map(p => P(...p)).join(' '), fill: 'var(--bgobj)', stroke: 'var(--bgline)', 'stroke-width': 2, 'stroke-linejoin': 'round', ...attrs }, bgSvg);
-  const rect = (x0, y0, x1, y1, attrs) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], attrs);
-  const line = (a, b, attrs = {}) => svgEl('line', { x1: toPx(...a)[0], y1: toPx(...a)[1], x2: toPx(...b)[0], y2: toPx(...b)[1], stroke: 'var(--bgline)', 'stroke-width': 2, ...attrs }, bgSvg);
-  line([-halfW - 1, G], [R + 0.1, G], { 'stroke-dasharray': '2 6' });          // 床・机の面
+  const sc = toPx(1, 0)[0] - toPx(0, 0)[0];             // 1単位あたりのpx
+  const X = x => toPx(x, 0)[0], Y = y => toPx(0, y)[1];
+  const el = (t, a, p = bgSvg) => svgEl(t, a, p);
+  // 共通の定義（グラデーション・影）
+  bgSvg.insertAdjacentHTML('beforeend', `<defs>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>
+    <linearGradient id="gRubber" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1f0ec"/><stop offset="1" stop-color="#d9d7d0"/></linearGradient>
+    <linearGradient id="gSleeve" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8f6b"/><stop offset=".5" stop-color="#2f7a58"/><stop offset="1" stop-color="#215a41"/></linearGradient>
+    <linearGradient id="gWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2bd88"/><stop offset=".6" stop-color="#cfa067"/><stop offset="1" stop-color="#a97a46"/></linearGradient>
+    <linearGradient id="gSteelV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d838b"/><stop offset=".35" stop-color="#d7dbe0"/><stop offset=".6" stop-color="#a3a9b1"/><stop offset="1" stop-color="#5f656d"/></linearGradient>
+    <linearGradient id="gSteelH" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a9098"/><stop offset=".4" stop-color="#d9dde2"/><stop offset="1" stop-color="#6a7078"/></linearGradient>
+    <linearGradient id="gBox" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa0a8"/><stop offset="1" stop-color="#70767e"/></linearGradient>
+    <linearGradient id="gTree" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9d4e0"/><stop offset=".45" stop-color="#f2f6fa"/><stop offset="1" stop-color="#aebccb"/></linearGradient>
+  </defs>`);
+  const g = el('g', { opacity: .92 });
+  // 床（机の上・地面）
+  el('line', { x1: 0, y1: Y(G), x2: X(R + 0.12), y2: Y(G), stroke: '#c9c2b2', 'stroke-width': 2 }, g);
+
   if (SP.bg === 'eraser') {
-    const L = 5.5 * k, T = 1.1 * k;
-    rect(R - L, G, R, G + T);
-    rect(R - L * 0.85, G - 0.02, R - L * 0.18, G + T + 0.03, { fill: 'var(--bgobj2)' });   // 紙のケース
+    const L = 5.5 * k, T = 1.1 * k, x0 = X(R - L), x1 = X(R), y0 = Y(G + T), y1 = Y(G);
+    el('ellipse', { cx: (x0 + x1) / 2, cy: y1 + 2, rx: (x1 - x0) / 2, ry: 6, fill: '#000', opacity: .18, filter: 'url(#soft)' }, g);
+    el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: .12 * sc * k * 1.5, fill: 'url(#gRubber)', stroke: '#c8c5bc', 'stroke-width': 1.5 }, g);
+    el('rect', { x: x0 + 4, y: y0 + 3, width: x1 - x0 - 8, height: (y1 - y0) * .18, rx: 4, fill: '#fff', opacity: .8 }, g);   // つや
+    // 紙のケース（はしが少し欠けた、使いかけ）
+    const s0 = X(R - L * 0.86), s1 = X(R - L * 0.2);
+    el('rect', { x: s0, y: y0 - 2, width: s1 - s0, height: y1 - y0 + 4, rx: 3, fill: 'url(#gSleeve)' }, g);
+    el('rect', { x: s0, y: y0 + (y1 - y0) * .38, width: s1 - s0, height: (y1 - y0) * .12, fill: '#fff', opacity: .85 }, g);
+    el('rect', { x: s0, y: y0 - 2, width: 3, height: y1 - y0 + 4, fill: '#000', opacity: .15 }, g);
+    el('path', { d: `M${x1 - 6} ${y0 + 2} q 5 ${(y1 - y0) * .3} 0 ${(y1 - y0) * .6}`, stroke: '#d8d5cd', 'stroke-width': 2, fill: 'none' }, g);   // 角のすりへり
   } else if (SP.bg === 'desk') {
-    const W = 60 * k, Ht = 64 * k, top = 2.5 * k, leg = 3 * k, box = 13 * k;
-    rect(R - W, G + Ht - top, R, G + Ht);                                       // 天板
-    rect(R - W + 2 * k, G + Ht - top - box, R - 2 * k, G + Ht - top, { fill: 'var(--bgobj2)' });   // 物入れ
-    rect(R - leg - 1 * k, G, R - 1 * k, G + Ht - top);                          // あし
-    rect(R - W + 1 * k, G, R - W + 1 * k + leg, G + Ht - top);
-    rect(R - W + 1 * k, G + 15 * k, R - 1 * k, G + 15 * k + 2 * k);            // 横の棒
+    const W = 60 * k, Ht = 64 * k, top = 2.5 * k, leg = 2.6 * k, box = 13 * k;
+    const xl = X(R - W), xr = X(R), yTop = Y(G + Ht), yTopB = Y(G + Ht - top), yG = Y(G);
+    el('ellipse', { cx: (xl + xr) / 2, cy: yG + 2, rx: (xr - xl) / 2 + 6, ry: 7, fill: '#000', opacity: .16, filter: 'url(#soft)' }, g);
+    // あし（スチールパイプ）
+    for (const lx of [R - W + 1.5 * k, R - 1.5 * k - leg]) {
+      el('rect', { x: X(lx), y: yTopB, width: leg * sc, height: yG - yTopB - 4, fill: 'url(#gSteelV)' }, g);
+      el('rect', { x: X(lx) - 1, y: yG - 6, width: leg * sc + 2, height: 6, rx: 2, fill: '#2b2b2b' }, g);   // ゴムの足
+    }
+    // 横の棒
+    const yb = Y(G + 17 * k);
+    el('rect', { x: X(R - W + 1.5 * k), y: yb, width: (W - 3 * k) * sc, height: 2 * k * sc, fill: 'url(#gSteelH)' }, g);
+    // 物入れ（スチール、手前が開いている）
+    const bx0 = X(R - W + 3 * k), bx1 = X(R - 3 * k), by0 = yTopB, by1 = Y(G + Ht - top - box);
+    el('rect', { x: bx0, y: by0, width: bx1 - bx0, height: by1 - by0, fill: 'url(#gBox)' }, g);
+    el('rect', { x: bx0 + 6, y: by0 + 4, width: bx1 - bx0 - 12, height: (by1 - by0) - 10, rx: 3, fill: '#3d4148' }, g);
+    el('rect', { x: bx0 + 10, y: by1 - 14, width: (bx1 - bx0) * .5, height: 8, fill: '#e9e4d8' }, g);   // 中のノート
+    // 天板（木目）
+    el('rect', { x: xl, y: yTop, width: xr - xl, height: yTopB - yTop, rx: 3, fill: 'url(#gWood)' }, g);
+    for (let i = 1; i < 4; i++)
+      el('path', { d: `M${xl} ${yTop + (yTopB - yTop) * i / 4} C ${xl + (xr - xl) * .3} ${yTop + (yTopB - yTop) * (i / 4 - .15)}, ${xl + (xr - xl) * .6} ${yTop + (yTopB - yTop) * (i / 4 + .15)}, ${xr} ${yTop + (yTopB - yTop) * i / 4}`,
+        stroke: '#8a5d30', 'stroke-width': 1, opacity: .35, fill: 'none' }, g);
+    el('rect', { x: xl, y: yTop, width: xr - xl, height: 2, fill: '#fff', opacity: .5 }, g);
+    el('rect', { x: xl, y: yTopB - 2, width: xr - xl, height: 2, fill: '#6d4a26', opacity: .5 }, g);
   } else {
     const Hm = 634, cx = R - 0.34;
-    const wAt = h => 0.68 * (1 - 0.72 * Math.pow(h / Hm, 0.8)) / 2;           // 下ほど太く、上へ細く
-    const hs = []; for (let h = 0; h < Hm; h += 20) hs.push(h); hs.push(Hm);
-    const pts = [...hs.map(h => [cx - wAt(h), G + h * k]), ...hs.reverse().map(h => [cx + wAt(h), G + h * k])];
-    poly(pts);
-    for (let h = 0; h < Hm; h += 40) {                                         // 鉄骨の組み
-      line([cx - wAt(h), G + h * k], [cx + wAt(h + 40), G + (h + 40) * k], { 'stroke-width': 1 });
-      line([cx + wAt(h), G + h * k], [cx - wAt(h + 40), G + (h + 40) * k], { 'stroke-width': 1 });
+    const wAt = h => 0.68 * (1 - 0.72 * Math.pow(h / Hm, 0.8)) / 2;
+    const hs = []; for (let h = 0; h < Hm; h += 10) hs.push(h); hs.push(Hm);
+    const pts = [...hs.map(h => [cx - wAt(h), G + h * k]), ...[...hs].reverse().map(h => [cx + wAt(h), G + h * k])];
+    el('ellipse', { cx: X(cx), cy: Y(G) + 2, rx: wAt(0) * sc + 10, ry: 7, fill: '#000', opacity: .15, filter: 'url(#soft)' }, g);
+    el('polygon', { points: pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' '), fill: 'url(#gTree)', opacity: .55 }, g);
+    // 鉄骨のトラス：外側の柱・中央の柱・斜めの部材・水平の帯
+    const st = { stroke: '#8597ab', fill: 'none' };
+    const side = sgn => hs.map(h => `${X(cx + sgn * wAt(h))},${Y(G + h * k)}`).join(' ');
+    el('polyline', { points: side(-1), 'stroke-width': 3.5, ...st }, g);
+    el('polyline', { points: side(1), 'stroke-width': 3.5, ...st }, g);
+    el('line', { x1: X(cx), y1: Y(G), x2: X(cx), y2: Y(G + Hm * k), 'stroke-width': 2.5, ...st }, g);
+    for (let h = 0; h < Hm; h += 25) {
+      const h2 = h + 25, a = [cx - wAt(h), G + h * k], b = [cx + wAt(h), G + h * k], a2 = [cx - wAt(h2), G + h2 * k], b2 = [cx + wAt(h2), G + h2 * k], m2 = [cx, G + h2 * k], m = [cx, G + h * k];
+      for (const [p, q] of [[a, m2], [m, a2], [b, m2], [m, b2]])
+        el('line', { x1: X(p[0]), y1: Y(p[1]), x2: X(q[0]), y2: Y(q[1]), 'stroke-width': 1.3, ...st }, g);
+      el('line', { x1: X(a[0]), y1: Y(a[1]), x2: X(b[0]), y2: Y(b[1]), 'stroke-width': 1.8, ...st }, g);
     }
-    for (const [h0, h1, w] of [[340, 355, 0.24], [445, 452, 0.17]])          // 展望台（350m・450m）
-      rect(cx - w, G + h0 * k, cx + w, G + h1 * k, { fill: 'var(--bgobj2)' });
+    // 展望台（350m・450m）
+    for (const [h0, h1, w] of [[340, 365, 0.25], [445, 455, 0.18]]) {
+      el('rect', { x: X(cx - w), y: Y(G + h1 * k), width: 2 * w * sc, height: (h1 - h0) * k * sc, rx: 4, fill: 'url(#gSteelH)', stroke: '#6d7f93' }, g);
+      el('rect', { x: X(cx - w) + 3, y: Y(G + h1 * k) + (h1 - h0) * k * sc * .3, width: 2 * w * sc - 6, height: (h1 - h0) * k * sc * .35, fill: '#4a6a8c', opacity: .7 }, g);
+    }
+    // 根元の建物
+    el('rect', { x: X(cx - wAt(0) - 0.25), y: Y(G + 30 * k), width: (2 * wAt(0) + 0.5) * sc, height: 30 * k * sc, rx: 3, fill: '#d6dbe1', stroke: '#9aa6b3' }, g);
   }
 }
 function resize() {
