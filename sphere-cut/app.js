@@ -5,7 +5,7 @@ import * as THREE from './three.module.min.js';
 const SPHERES = [
   { label: '3cm',  H: 3,   bg: 'eraser', text: k => { const v = Math.round(30 * k) / 10; return (Number.isInteger(v) ? v : v.toFixed(1)) + 'cm'; } },
   { label: '1m',   H: 100, bg: 'desk',   text: k => { const v = Math.round(100 * k); return v === 100 ? '1m' : v + 'cm'; } },
-  { label: '200m', H: 200, bg: 'tree',   text: k => Math.round(200 * k) + 'm' },
+  { label: '300m', H: 300, bg: 'tree',   text: k => Math.round(300 * k) + 'm' },
 ];
 let SP = SPHERES[0];
 const lenText = k => SP.text(k);
@@ -39,15 +39,15 @@ dl.position.set(1.2, 1.6, 2.5); scene.add(dl);
 let halfW = 1, halfH = 1;
 /* ---------- 背景の比較物（画面左端に見切れる形で、球と同じ縮尺） ----------
    球の高さ＝画面上の2単位。k＝1cm（または1m）あたりの単位数。地面＝球の下端 y=-1。
-   寸法の目安：消しゴム 長さ5.5cm・高さ1.1cm／児童机（JIS 4号）高さ64cm・幅60cm／東京スカイツリー 高さ634m・脚部の幅 約68m */
+   寸法の目安：消しゴム（縦置き）高さ5.5cm・幅2.3cm／児童机（JIS 4号）高さ64cm・幅60cm／東京スカイツリー 高さ634m・脚部の幅 約68m */
 const bgSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 bgSvg.id = 'bg'; stage.insertBefore(bgSvg, stage.firstChild);
 function drawBg() {
   bgSvg.innerHTML = '';
   if (!stage.clientWidth) return;
   const k = 2 / SP.H, G = -1;
-  const W0 = { eraser: 5.5, desk: 60, tree: 68 }[SP.bg] * k;
-  const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.45, desk: 0.5, tree: 0.75 }[SP.bg]);
+  const W0 = { eraser: 2.3, desk: 60, tree: 68 }[SP.bg] * k;
+  const R = Math.min(-1.3, -halfW + W0 * { eraser: 0.6, desk: 0.5, tree: 0.75 }[SP.bg]);
   const sc = toPx(1, 0)[0] - toPx(0, 0)[0];             // 1単位あたりのpx
   const X = x => toPx(x, 0)[0], Y = y => toPx(0, y)[1];
   const el = (t, a, p = bgSvg) => svgEl(t, a, p);
@@ -55,7 +55,7 @@ function drawBg() {
   bgSvg.insertAdjacentHTML('beforeend', `<defs>
     <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>
     <linearGradient id="gRubber" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1f0ec"/><stop offset="1" stop-color="#d9d7d0"/></linearGradient>
-    <linearGradient id="gSleeve" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8f6b"/><stop offset=".5" stop-color="#2f7a58"/><stop offset="1" stop-color="#215a41"/></linearGradient>
+    <linearGradient id="gSleeveV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3f8f6b"/><stop offset=".5" stop-color="#2f7a58"/><stop offset="1" stop-color="#215a41"/></linearGradient>
     <linearGradient id="gWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2bd88"/><stop offset=".6" stop-color="#cfa067"/><stop offset="1" stop-color="#a97a46"/></linearGradient>
     <linearGradient id="gSteelV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d838b"/><stop offset=".35" stop-color="#d7dbe0"/><stop offset=".6" stop-color="#a3a9b1"/><stop offset="1" stop-color="#5f656d"/></linearGradient>
     <linearGradient id="gSteelH" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a9098"/><stop offset=".4" stop-color="#d9dde2"/><stop offset="1" stop-color="#6a7078"/></linearGradient>
@@ -67,16 +67,17 @@ function drawBg() {
   el('line', { x1: 0, y1: Y(G), x2: X(R + 0.12), y2: Y(G), stroke: '#c9c2b2', 'stroke-width': 2 }, g);
 
   if (SP.bg === 'eraser') {
-    const L = 5.5 * k, T = 1.1 * k, x0 = X(R - L), x1 = X(R), y0 = Y(G + T), y1 = Y(G);
-    el('ellipse', { cx: (x0 + x1) / 2, cy: y1 + 2, rx: (x1 - x0) / 2, ry: 6, fill: '#000', opacity: .18, filter: 'url(#soft)' }, g);
-    el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: .12 * sc * k * 1.5, fill: 'url(#gRubber)', stroke: '#c8c5bc', 'stroke-width': 1.5 }, g);
-    el('rect', { x: x0 + 4, y: y0 + 3, width: x1 - x0 - 8, height: (y1 - y0) * .18, rx: 4, fill: '#fff', opacity: .8 }, g);   // つや
-    // 紙のケース（はしが少し欠けた、使いかけ）
-    const s0 = X(R - L * 0.86), s1 = X(R - L * 0.2);
-    el('rect', { x: s0, y: y0 - 2, width: s1 - s0, height: y1 - y0 + 4, rx: 3, fill: 'url(#gSleeve)' }, g);
-    el('rect', { x: s0, y: y0 + (y1 - y0) * .38, width: s1 - s0, height: (y1 - y0) * .12, fill: '#fff', opacity: .85 }, g);
-    el('rect', { x: s0, y: y0 - 2, width: 3, height: y1 - y0 + 4, fill: '#000', opacity: .15 }, g);
-    el('path', { d: `M${x1 - 6} ${y0 + 2} q 5 ${(y1 - y0) * .3} 0 ${(y1 - y0) * .6}`, stroke: '#d8d5cd', 'stroke-width': 2, fill: 'none' }, g);   // 角のすりへり
+    // 縦に立てた消しゴム（高さ5.5cm・幅2.3cm）
+    const L = 5.5 * k, T = 2.3 * k, x0 = X(R - T), x1 = X(R), y0 = Y(G + L), y1 = Y(G);
+    el('ellipse', { cx: (x0 + x1) / 2, cy: y1 + 2, rx: (x1 - x0) / 2 + 6, ry: 6, fill: '#000', opacity: .18, filter: 'url(#soft)' }, g);
+    el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: (x1 - x0) * .08, fill: 'url(#gRubber)', stroke: '#c8c5bc', 'stroke-width': 1.5 }, g);
+    el('rect', { x: x0 + (x1 - x0) * .12, y: y0 + 4, width: (x1 - x0) * .12, height: y1 - y0 - 8, rx: 4, fill: '#fff', opacity: .8 }, g);   // つや
+    // 紙のケース（下から20%〜86%）
+    const s0 = Y(G + L * 0.86), s1 = Y(G + L * 0.2);
+    el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: s1 - s0, rx: 3, fill: 'url(#gSleeveV)' }, g);
+    el('rect', { x: x0 - 2, y: s0 + (s1 - s0) * .38, width: x1 - x0 + 4, height: (s1 - s0) * .07, fill: '#fff', opacity: .85 }, g);
+    el('rect', { x: x0 - 2, y: s0, width: x1 - x0 + 4, height: 3, fill: '#000', opacity: .15 }, g);
+    el('path', { d: `M${x0 + 4} ${y0 + 6} q ${(x1 - x0) * .3} -5 ${(x1 - x0) * .6} 0`, stroke: '#d8d5cd', 'stroke-width': 2, fill: 'none' }, g);   // 角のすりへり
   } else if (SP.bg === 'desk') {
     const W = 60 * k, Ht = 64 * k, top = 2.5 * k, leg = 2.6 * k, box = 13 * k;
     const xl = X(R - W), xr = X(R), yTop = Y(G + Ht), yTopB = Y(G + Ht - top), yG = Y(G);
@@ -176,7 +177,7 @@ const dotRingGeo = new THREE.RingGeometry(0.05, 0.062, 32);
 /* ---------- 表面の質感：大きさの手がかり ----------
    3cm ：プラスチック玉。強いつや（小さく鋭いハイライト）と、型の合わせ目の細い線。
    1m  ：これまでどおりのつや消し。
-   200m：大きな構造物。たくさんの板（パネル）を継ぎ合わせた面。板ごとのわずかな色むら・継ぎ目・
+   300m：大きな構造物。たくさんの板（パネル）を継ぎ合わせた面。板ごとのわずかな色むら・継ぎ目・
          太い補強の帯・リベット列で「細かい部品の集まり＝巨大」を示し、遠くの物のように少しかすませる。
    色そのものは頂点色（虹色）のまま。質感はテクスチャを掛け合わせて表す。 */
 const texCache = {};
