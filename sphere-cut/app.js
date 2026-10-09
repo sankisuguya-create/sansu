@@ -136,8 +136,12 @@ function drawBg() {
       el('polygon', { points: `${lead},${-d * .12} ${cone},${-d / 2} ${cone},${d / 2} ${lead},${d * .12}`, fill: '#e3b77e' }, pg);   // 削った木
       el('polygon', { points: `${lead},0 ${cone},0 ${cone},${d / 2} ${lead},${d * .12}`, fill: '#c99659' }, pg);
       el('polygon', { points: `0,0 ${lead},${-d * .12} ${lead},${d * .12}`, fill: '#2b2b2b' }, pg);       // しん
-      let wave = `M${cone} ${-d / 2}`; for (let i = 1; i <= 6; i++) wave += ` L${cone - (i % 2 ? d * .12 : 0)} ${-d / 2 + d * i / 6}`;
-      el('path', { d: wave, stroke: '#1f4a2e', 'stroke-width': 2, fill: 'none' }, pg);
+      // 塗装と木のさかいめ（波形）：波の山まで塗装の色で塗る（3面の色に合わせる）
+      pg.insertAdjacentHTML('beforeend', `<defs><linearGradient id="gPaint" gradientUnits="userSpaceOnUse" x1="0" y1="${-d / 2}" x2="0" y2="${d / 2}">
+        <stop offset="0" stop-color="#4d8a5f"/><stop offset=".333" stop-color="#4d8a5f"/><stop offset=".333" stop-color="#2f6b43"/>
+        <stop offset=".667" stop-color="#2f6b43"/><stop offset=".667" stop-color="#1f4a2e"/><stop offset="1" stop-color="#1f4a2e"/></linearGradient></defs>`);
+      let wave = `M${cone + 1} ${-d / 2}`; for (let i = 0; i <= 6; i++) wave += ` L${cone - (i % 2 ? d * .12 : 0)} ${-d / 2 + d * i / 6}`;
+      el('path', { d: wave + ` L${cone + 1} ${d / 2} Z`, fill: 'url(#gPaint)' }, pg);
     }
     // 消しゴム（手前）
     {
