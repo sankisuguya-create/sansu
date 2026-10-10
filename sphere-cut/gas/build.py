@@ -35,6 +35,13 @@ out = f'''<!DOCTYPE html>
     var gl = c.getContext('webgl2') || c.getContext('webgl');
     if (!gl) show('この端末・ブラウザでは3D表示（WebGL）が使えません。chrome://gpu で「WebGL」の項目を確認してください。');
   }} catch (e) {{ show('WebGLの確認で失敗: ' + e.message); }}
+  ['error', 'warn'].forEach(function (k) {{
+    var orig = console[k];
+    console[k] = function () {{
+      try {{ show('[' + k + '] ' + Array.prototype.map.call(arguments, function (a) {{ return (a && a.message) || String(a); }}).join(' ').slice(0, 600)); }} catch (e) {{}}
+      return orig.apply(console, arguments);
+    }};
+  }});
   window.__diagShow = show;
 }})();
 </script>

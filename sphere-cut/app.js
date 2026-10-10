@@ -679,6 +679,17 @@ function renderHistory() {
   box.scrollTop = box.scrollHeight; box.scrollLeft = box.scrollWidth;
 }
 
+/* ---------- 診断：球が実際に描けたかを1回だけ確かめる（GAS版の画面表示用） ---------- */
+let drawnChecked = false;
+function checkDrawn() {
+  if (drawnChecked || !window.__diagShow || !sphereGroup.visible || (typeof picker !== 'undefined' && !picker.hidden)) return;
+  drawnChecked = true;
+  const gl = renderer.getContext(), px = new Uint8Array(4);
+  gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  const gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '不明';
+  if (px[3] === 0) window.__diagShow(`球が描けていません（中心の画素が空）。GPU: ${gpu} / WebGL${renderer.capabilities.isWebGL2 ? 2 : 1} / 画面 ${gl.drawingBufferWidth}×${gl.drawingBufferHeight}`);
+}
 /* ---------- 描画ループ（変化があるときだけ描く：4GB機対策） ---------- */
 let dirty = true;
 const tmpPlane = new THREE.Plane();
@@ -703,7 +714,7 @@ function tick() {
       c.group.updateMatrixWorld(true);
     }
   }
-  if (dirty) { renderer.render(scene, cam); dirty = false; if (st.cut) drawHeight(); }
+  if (dirty) { renderer.render(scene, cam); checkDrawn(); dirty = false; if (st.cut) drawHeight(); }
   requestAnimationFrame(tick);
 }
 
