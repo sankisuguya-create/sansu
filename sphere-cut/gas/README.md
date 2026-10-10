@@ -23,7 +23,8 @@ python3 gas/build.py /tmp/bundle.js
 ```
 （sphere-cut フォルダで実行）
 
-## なぜ `--supported:template-literal=false` か
-GAS を通すと、JS の文字列の中の改行が失われることがある。three.js のシェーダー（`#ifdef` などの行）は
-改行に依存するため、改行が消えると「CUBEUV_MAX_MIP: undeclared identifier」等で球が描けなくなる。
-テンプレート文字列を通常の文字列＋`\n`に変換して、生の改行を含まないようにしている。
+## なぜ本体を Base64 で埋め込むか
+GAS を通すと、script 内の three.js のシェーダー文字列（`#include <名前>` など）が書き換えられ、
+「CUBEUV_MAX_MIP: undeclared identifier」「#endif found without a matching #if」で球が描けなくなった。
+本体を Base64（英数字と + / = だけ）にして `<script type="text/plain">` に入れ、ブラウザで戻してから実行する。
+戻した中身は CRC32 で照合し、壊れていれば画面に表示する。

@@ -8,7 +8,12 @@ here = pathlib.Path(__file__).resolve().parent
 root = here.parent
 html = (root / 'index.html').read_text(encoding='utf-8')
 css = (root / 'style.css').read_text(encoding='utf-8')
-js = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').replace('</script', '<\\/script')
+import base64, zlib, textwrap
+js_raw = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+# GAS を通ると script 内の記号（< > や改行）が書き換えられることがあるため、
+# 本体は Base64 にして埋め込み、ブラウザで戻してから実行する。CRC32 で中身を照合する。
+b64 = '\n'.join(textwrap.wrap(base64.b64encode(js_raw.encode('utf-8')).decode('ascii'), 100))
+crc = zlib.crc32(js_raw.encode('utf-8'))
 body = html[html.index('<body'):html.index('<script type="module"')]
 out = f'''<!DOCTYPE html>
 <html lang="ja">
@@ -45,8 +50,24 @@ out = f'''<!DOCTYPE html>
   window.__diagShow = show;
 }})();
 </script>
+<script type="text/plain" id="appB64">
+{b64}
+</script>
 <script>
-{js}</script>
+(function () {{
+  var b64 = document.getElementById('appB64').textContent.replace(/[^A-Za-z0-9+/=]/g, '');
+  var bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  var crc = -1;
+  for (var j = 0; j < bytes.length; j++) {{ crc ^= bytes[j]; for (var k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1)); }}
+  crc = (crc ^ -1) >>> 0;
+  if (crc !== {crc}) {{ window.__diagShow && window.__diagShow('プログラムの中身が壊れています（照合失敗）。index を貼り直してください。'); return; }}
+  var code = new TextDecoder('utf-8').decode(bytes);
+  var sc = document.createElement('script');
+  sc.textContent = code;
+  document.body.appendChild(sc);
+}})();
+</script>
 </body>
 </html>
 '''
