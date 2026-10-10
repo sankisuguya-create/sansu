@@ -18,7 +18,12 @@
 
 ## index.html の作り直し（app.js / style.css / ../index.html を変更した時）
 ```
-npx esbuild app.js --bundle --minify --format=iife --target=es2020 --outfile=/tmp/bundle.js
+npx esbuild app.js --bundle --minify --format=iife --target=es2020 --supported:template-literal=false --outfile=/tmp/bundle.js
 python3 gas/build.py /tmp/bundle.js
 ```
 （sphere-cut フォルダで実行）
+
+## なぜ `--supported:template-literal=false` か
+GAS を通すと、JS の文字列の中の改行が失われることがある。three.js のシェーダー（`#ifdef` などの行）は
+改行に依存するため、改行が消えると「CUBEUV_MAX_MIP: undeclared identifier」等で球が描けなくなる。
+テンプレート文字列を通常の文字列＋`\n`に変換して、生の改行を含まないようにしている。

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """sphere-cut を GAS（HtmlService）用の1ファイル gas/index.html にまとめる。
-使い方:  npx esbuild app.js --bundle --minify --format=iife --target=es2020 --outfile=/tmp/bundle.js
+使い方:  npx esbuild app.js --bundle --minify --format=iife --target=es2020 --supported:template-literal=false --outfile=/tmp/bundle.js
          python3 gas/build.py /tmp/bundle.js
 """
 import re, sys, pathlib
