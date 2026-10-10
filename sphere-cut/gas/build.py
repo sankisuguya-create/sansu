@@ -19,6 +19,26 @@ out = f'''<!DOCTYPE html>
 {css}</style>
 </head>
 {body}<script>
+/* 不具合の原因を画面に出す（GAS環境での診断用） */
+(function () {{
+  function show(msg) {{
+    var d = document.getElementById('diag');
+    if (!d) {{ d = document.createElement('div'); d.id = 'diag';
+      d.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff3f3;color:#8a1010;border:2px solid #c33;border-radius:8px;padding:10px;font:14px/1.5 sans-serif;white-space:pre-wrap';
+      document.body.appendChild(d); }}
+    d.textContent += msg + '\\n';
+  }}
+  window.addEventListener('error', function (e) {{ show('エラー: ' + e.message + (e.lineno ? ' (行 ' + e.lineno + ':' + e.colno + ')' : '')); }});
+  window.addEventListener('unhandledrejection', function (e) {{ show('エラー: ' + (e.reason && e.reason.message || e.reason)); }});
+  try {{
+    var c = document.createElement('canvas');
+    var gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) show('この端末・ブラウザでは3D表示（WebGL）が使えません。chrome://gpu で「WebGL」の項目を確認してください。');
+  }} catch (e) {{ show('WebGLの確認で失敗: ' + e.message); }}
+  window.__diagShow = show;
+}})();
+</script>
+<script>
 {js}</script>
 </body>
 </html>
