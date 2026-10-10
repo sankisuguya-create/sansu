@@ -127,7 +127,7 @@ function drawBg() {
     // えんぴつ（手前の机の上）：画面の右下から、先を中央下へ向けて斜めに置く。太さ約0.7cm・削った部分約1.8cm
     {
       const d = 0.72 * k * sc, cone = 1.8 * k * sc, lead = 0.35 * k * sc, len = 2000;
-      const tip = toPx(0.35, G - 0.32), ang = 16;                               // 先の位置（球の下端より手前）と傾き
+      const tip = toPx(1.2, G - 0.22), ang = 16;   // 先は球（半径1）の右下の外側。切って下にずれた半分とも重ならない                               // 先の位置（球の下端より手前）と傾き
       const pg = el('g', { transform: `translate(${tip[0]},${tip[1]}) rotate(${ang})` }, g);
       const R2 = (x0, y0, x1, y1, fill, o = 1) => el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill, opacity: o }, pg);
       el('rect', { x: cone * .3, y: d * .35, width: len, height: d * .5, fill: '#000', opacity: .18, filter: 'url(#soft)' }, pg);   // 影

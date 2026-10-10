@@ -130,3 +130,11 @@ header button{white-space:nowrap}
 #gPos.at-center .mid{background:var(--accent);color:#fff}
 #gPos.at-center label::after{content:"　まんなか";color:var(--accent)}
 .scale{min-height:30px}
+
+/* 切り口スライド：画面の高さに収める（SVGは枠いっぱいに縮小） */
+#sBody{min-height:0;overflow:hidden}
+.spanes{grid-template-rows:minmax(0,1fr);min-height:0}
+.pane{display:grid;grid-template-rows:auto minmax(0,1fr);justify-items:center;min-height:0;height:100%}
+.pane svg{width:100%;height:100%;max-height:none;aspect-ratio:auto;min-height:0}
+#sThumbs{flex:none}
+@media (max-width:600px){ .spanes{grid-template-rows:minmax(0,1fr) minmax(0,1fr)} }

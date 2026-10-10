@@ -136,6 +136,14 @@ header button{white-space:nowrap}
 #gPos.at-center .mid{background:var(--accent);color:#fff}
 #gPos.at-center label::after{content:"　まんなか";color:var(--accent)}
 .scale{min-height:30px}
+
+/* 切り口スライド：画面の高さに収める（SVGは枠いっぱいに縮小） */
+#sBody{min-height:0;overflow:hidden}
+.spanes{grid-template-rows:minmax(0,1fr);min-height:0}
+.pane{display:grid;grid-template-rows:auto minmax(0,1fr);justify-items:center;min-height:0;height:100%}
+.pane svg{width:100%;height:100%;max-height:none;aspect-ratio:auto;min-height:0}
+#sThumbs{flex:none}
+@media (max-width:600px){ .spanes{grid-template-rows:minmax(0,1fr) minmax(0,1fr)} }
 </style>
 </head>
 <body data-mode="teacher">
@@ -7203,7 +7211,7 @@ aHQ6MSxmaWxsOiIjN2Y4ZWEwIixvcGFjaXR5Oi40fSxfKTtNKz1ifX0pO2ZvcihsZXQgZz1jKzgsdj00
 MS4zKW8oInJlY3QiLHt4OjAseTpnLHdpZHRoOmgsaGVpZ2h0OnYsZmlsbDoiI2U4ZTZkZiIsb3BhY2l0eTouMzV9LF8pfWlmKF90
 LmJnPT09ImVyYXNlciIpe2xldCB4PS40KnIsZz0uMypyLHY9KHksdyxNPXt9KT0+bygicG9seWdvbiIse3BvaW50czp5Lm1hcCgo
 W2IsTF0pPT4iIi5jb25jYXQocyhiKSwiLCIpLmNvbmNhdChhKEwpKSkuam9pbigiICIpLGZpbGw6dywuLi5NfSxsKTt7bGV0IHk9
-LjcyKnIqbix3PTEuOCpyKm4sTT0uMzUqcipuLGI9MmUzLEw9enQoLjM1LGUtLjMyKSxVPW8oImciLHt0cmFuc2Zvcm06InRyYW5z
+LjcyKnIqbix3PTEuOCpyKm4sTT0uMzUqcipuLGI9MmUzLEw9enQoMS4yLGUtLjIyKSxVPW8oImciLHt0cmFuc2Zvcm06InRyYW5z
 bGF0ZSgiLmNvbmNhdChMWzBdLCIsIikuY29uY2F0KExbMV0sIikgcm90YXRlKCIpLmNvbmNhdCgxNiwiKSIpfSxsKSxWPShGLHos
 aWUsb2UsJCxHPTEpPT5vKCJyZWN0Iix7eDpGLHk6eix3aWR0aDppZS1GLGhlaWdodDpvZS16LGZpbGw6JCxvcGFjaXR5Okd9LFUp
 O28oInJlY3QiLHt4OncqLjMseTp5Ki4zNSx3aWR0aDpiLGhlaWdodDp5Ki41LGZpbGw6IiMwMDAiLG9wYWNpdHk6LjE4LGZpbHRl
@@ -7570,7 +7578,7 @@ ZS1JZGVudGlmaWVyOiBNSVQKICovCg==
   var crc = -1;
   for (var j = 0; j < bytes.length; j++) { crc ^= bytes[j]; for (var k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1)); }
   crc = (crc ^ -1) >>> 0;
-  if (crc !== 2629363655) { window.__diagShow && window.__diagShow('プログラムの中身が壊れています（照合失敗）。index を貼り直してください。'); return; }
+  if (crc !== 1371302207) { window.__diagShow && window.__diagShow('プログラムの中身が壊れています（照合失敗）。index を貼り直してください。'); return; }
   var code = new TextDecoder('utf-8').decode(bytes);
   var sc = document.createElement('script');
   sc.textContent = code;
