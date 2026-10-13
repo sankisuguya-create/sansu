@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コンパスもよう問題</title>
+<style>
+:root{--ink:#1d2733;--muted:#5b6675;--line:#d5dbe3;--bg:#eef2f6;--accent:#1769aa;
+  --font:"Hiragino Sans","Yu Gothic UI","BIZ UDPGothic","Noto Sans JP",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font)}
+rt{font-size:.5em}
+.bar{position:sticky;top:0;z-index:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line)}
+.bar h1{font-size:17px;margin:0 auto 0 0}
+.bar button,.save{font:inherit;min-height:44px;padding:6px 14px;border:1px solid #c3ccd7;border-radius:10px;background:#fff;cursor:pointer}
+.bar button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bar label{display:flex;align-items:center;gap:6px;min-height:44px}
+/* 1ページ = A4横 */
+.page{width:297mm;height:210mm;margin:12px auto;background:#fff;box-shadow:0 1px 6px #0002;padding:10mm 12mm;display:flex;flex-direction:column;overflow:hidden}
+.head{display:flex;align-items:baseline;gap:5mm;border-bottom:.4mm solid var(--ink);padding-bottom:2mm}
+.head h2{font-size:7mm;margin:0}
+.head .name{margin-left:auto;font-size:4.5mm}
+.head .name span{display:inline-block;width:50mm;border-bottom:.3mm solid var(--ink)}
+.task{font-size:4.6mm;line-height:2.1;margin:2mm 0 2mm}
+.boards{display:flex;justify-content:space-between;align-items:flex-start;flex:1}
+.board{display:flex;flex-direction:column;align-items:center;gap:1.5mm}
+.board .cap{font-size:4.2mm;font-weight:700}
+.board svg{width:128mm;height:128mm;display:block}
+.ans .boards{gap:6mm}
+.ans table{border-collapse:collapse;font-size:3.8mm;align-self:flex-start;flex:1}
+.ans th,.ans td{border:.25mm solid #9aa5b1;padding:1.2mm 2mm;text-align:left;vertical-align:top}
+.ans th{background:#f1f4f7}
+.ans .save{margin-top:3mm;font-size:3.6mm;min-height:0}
+.note{font-size:3.6mm;color:var(--muted);margin-top:2mm}
+body.noAns .ans{display:none}
+@media print{
+  @page{size:A4 landscape;margin:0}
+  body{background:#fff}
+  .bar,.save{display:none!important}
+  .page{margin:0;box-shadow:none;break-after:page}
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>コンパスもよう問題（3年 円と球）</h1>
+  <label><input type="checkbox" id="showAns" checked> 解答ページもいんさつする</label>
+  <button class="primary" onclick="print()">いんさつ（A4横・倍率100%）</button>
+</div>
+<div id="pages"></div>
+<script>
+(() => {
+'use strict';
+// ===== 問題データ（単一真実源） =====
+// 座標は1マス=1cm、左上が(0,0)、右へx・下へy。12×12マスに収める。
+// keep:[開始°,終了°] は残す弧（0°=右、90°=下、時計回りに増える）。無ければ円を全部かく。
+// lab: 半径を示す赤い点線の向き（°。hint='full' の問題だけで使う）
+// hint: 'full'=中心と半径を見せる / 'center'=中心だけ / 'none'=手がかりなし
+const PROBLEMS = [
+  { title: '4まいの 花びら', hint: 'full',
+    task: '見本と 同じ もようを、右の ます目に コンパスで かきましょう。',
+    items: [
+      { c: [6, 6], r: 4, lab: -30 }, { c: [6, 6], r: 2, lab: 150 },
+      { c: [6, 4], r: 2, lab: 270 }, { c: [8, 6], r: 2, lab: 0 }, { c: [6, 8], r: 2, lab: 90 }, { c: [4, 6], r: 2, lab: 180 } ] },
+  { title: 'ならんだ 円', hint: 'full',
+    task: '中心が 2マスずつ ずれた 円です。同じ もようを かきましょう。',
+    items: [ { c: [3, 6], r: 3, lab: 270 }, { c: [5, 6], r: 3, lab: 90 }, { c: [7, 6], r: 3, lab: 270 }, { c: [9, 6], r: 3, lab: 90 } ] },
+  { title: '重なる 円', hint: 'full',
+    task: '4つの 大きな 円と、まん中の 小さな 円を かきましょう。',
+    items: [ { c: [5, 5], r: 4, lab: 225 }, { c: [7, 5], r: 4, lab: 315 }, { c: [5, 7], r: 4, lab: 135 }, { c: [7, 7], r: 4, lab: 45 }, { c: [6, 6], r: 1, lab: 0 } ] },
+  { title: '円の 中の ほし', hint: 'center',
+    task: '●が 中心です。半径を ます目で 数えて かきましょう。円の 一部だけを かく 線も あります。',
+    items: [
+      { c: [6, 6], r: 3 },
+      { c: [3, 6], r: 3, keep: [-60, 60], note: '大きな円の 内がわだけ' },
+      { c: [9, 6], r: 3, keep: [120, 240], note: '大きな円の 内がわだけ' },
+      { c: [6, 3], r: 3, keep: [30, 150], note: '大きな円の 内がわだけ' },
+      { c: [6, 9], r: 3, keep: [210, 330], note: '大きな円の 内がわだけ' } ] },
+  { title: 'ともえ', hint: 'center',
+    task: '●が 中心です。小さな 円は 半分だけ かきます。うすく 円を かいてから、いらない ところを 消しても よいです。',
+    items: [
+      { c: [6, 6], r: 4 },
+      { c: [6, 4], r: 2, keep: [90, 270], note: '左半分' },
+      { c: [8, 6], r: 2, keep: [180, 360], note: '上半分' },
+      { c: [6, 8], r: 2, keep: [270, 450], note: '右半分' },
+      { c: [4, 6], r: 2, keep: [0, 180], note: '下半分' } ] },
+  { title: '花の まど', hint: 'center',
+    task: '●が 中心です。外がわの 4つの 円は、内がわの 4分の1を かきません。',
+    items: [
+      { c: [4, 4], r: 2, keep: [90, 360], note: '右下の4分の1を かかない' },
+      { c: [8, 4], r: 2, keep: [180, 450], note: '左下の4分の1を かかない' },
+      { c: [8, 8], r: 2, keep: [270, 540], note: '左上の4分の1を かかない' },
+      { c: [4, 8], r: 2, keep: [0, 270], note: '右上の4分の1を かかない' },
+      { c: [6, 6], r: 2 }, { c: [6, 6], r: 1 } ] },
+  { title: 'たまごの から', hint: 'none',
+    task: '中心と 半径を 見本から 読みとって かきましょう。（ヒント：円どうしが 1点で ふれあって います）',
+    items: [
+      { c: [6, 6], r: 4 }, { c: [5, 6], r: 3 }, { c: [4, 6], r: 2 }, { c: [3, 6], r: 1 },
+      { c: [7, 6], r: 3 }, { c: [8, 6], r: 2 }, { c: [9, 6], r: 1 } ] },
+  { title: '七宝（しっぽう）もよう', hint: 'none',
+    task: '同じ 大きさの 円が きまりよく ならんで います。中心の ならび方を 見つけて かきましょう。',
+    items: [[2,2],[6,2],[10,2],[4,4],[8,4],[2,6],[6,6],[10,6],[4,8],[8,8],[2,10],[6,10],[10,10]].map(c => ({ c, r: 2 })) },
+];
+
+// ===== 描画 =====
+const RB = (k, r) => `<ruby>${k}<rt>${r}</rt></ruby>`;
+const rad = d => d * Math.PI / 180;
+function arcPath({ c: [x, y], r, keep }) {
+  if (!keep) return `<circle cx="${x}" cy="${y}" r="${r}"/>`;
+  const [a, b] = keep, p = t => [x + r * Math.cos(rad(t)), y + r * Math.sin(rad(t))];
+  const [x1, y1] = p(a), [x2, y2] = p(b);
+  return `<path d="M${x1} ${y1}A${r} ${r} 0 ${b - a > 180 ? 1 : 0} 1 ${x2} ${y2}"/>`;
+}
+// mode: 'model'（見本・手がかりつき） / 'blank'（かく場所） / 'answer'（中心と番号）
+function board(p, mode) {
+  let g = '';
+  for (let i = 0; i <= 12; i++) g += `<line x1="${i}" y1="0" x2="${i}" y2="12"/><line x1="0" y1="${i}" x2="12" y2="${i}"/>`;
+  let nums = '';
+  for (let i = 0; i <= 12; i += 2) nums += `<text x="${i}" y="-.18" text-anchor="middle">${i}</text><text x="-.2" y="${i + .12}" text-anchor="end">${i}</text>`;
+  const lines = mode === 'blank' ? '' : p.items.map(arcPath).join('');
+  let marks = '';
+  const showCenter = mode === 'answer' || (mode === 'model' && p.hint !== 'none');
+  if (showCenter) {
+    const byC = new Map();
+    p.items.forEach((it, i) => { const k = it.c.join(','); if (!byC.has(k)) byC.set(k, []); byC.get(k).push(mode === 'answer' ? i + 1 : it.r); });
+    for (const [k, list] of byC) {
+      const [x, y] = k.split(',').map(Number);
+      marks += `<circle cx="${x}" cy="${y}" r=".12" class="dot"/>`;
+      if (mode === 'answer') marks += `<text x="${x + .18}" y="${y - .18}" class="lab">${list.join('・')}</text>`;
+    }
+    if (mode === 'model' && p.hint === 'full') for (const { c: [x, y], r, lab = 0 } of p.items) {
+      const ux = Math.cos(rad(lab)), uy = Math.sin(rad(lab)), mx = x + ux * r / 2 - uy * .32, my = y + uy * r / 2 + ux * .32;
+      marks += `<line x1="${x}" y1="${y}" x2="${x + ux * r}" y2="${y + uy * r}" class="rad"/><text x="${mx}" y="${my + .12}" text-anchor="middle" class="lab">${r}</text>`;
+    }
+  }
+  return `<svg viewBox="-.9 -.7 13.3 13.3" xmlns="http://www.w3.org/2000/svg">
+    <style>.g line{stroke:#c9d0d8;stroke-width:.018}.f{fill:none;stroke:#8f9aa8;stroke-width:.03}
+    .n text{font:.3px ${getComputedStyle(document.body).fontFamily};fill:#7a8594}
+    .L circle,.L path{fill:none;stroke:#111;stroke-width:.05;stroke-linecap:round}
+    .dot{fill:#e5484d}.rad{stroke:#e5484d;stroke-width:.04;stroke-dasharray:.15 .1}.lab{font:700 .34px sans-serif;fill:#b42318;stroke:#fff;stroke-width:.08;paint-order:stroke}</style>
+    <g class="g">${g}</g><rect class="f" x="0" y="0" width="12" height="12"/><g class="n">${nums}</g>
+    <g class="L">${lines}</g>${marks}</svg>`;
+}
+const HINT_TEXT = { full: '●＝中心、赤い点線＝半径（数字はマス）', center: '●＝中心', none: '' };
+function problemPage(p, n) {
+  return `<section class="page">
+    <div class="head"><h2>もんだい ${n}　${p.title}</h2><div class="name">名前 <span></span></div></div>
+    <p class="task">${p.task.replace('半径', RB('半径', 'はんけい'))}</p>
+    <div class="boards">
+      <div class="board"><div class="cap">見本　<small>${HINT_TEXT[p.hint]}</small></div>${board(p, 'model')}</div>
+      <div class="board"><div class="cap">ここに かこう</div>${board(p, 'blank')}</div>
+    </div>
+    <p class="note">いんさつは 倍率100%で。1マス＝1cm に なります。</p>
+  </section>`;
+}
+function answerPage(p, n) {
+  const rows = p.items.map((it, i) => `<tr><td>${i + 1}</td><td>(${it.c[0]}, ${it.c[1]})</td><td>${it.r}</td><td>${it.note || '円を全部'}</td></tr>`).join('');
+  return `<section class="page ans">
+    <div class="head"><h2>解答（教師用）　もんだい ${n}　${p.title}</h2></div>
+    <p class="task">数字＝かく順（中心に表示）。座標は (横, 縦)、左上が (0, 0)。</p>
+    <div class="boards">
+      <div class="board">${board(p, 'answer')}</div>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <table><tr><th>順</th><th>中心</th><th>半径</th><th>かく部分</th></tr>${rows}</table>
+        <div><button class="save" data-n="${n - 1}">エディタ用データを保存（円の模様エディタ「先生用 → データを読み込む」）</button></div>
+      </div>
+    </div>
+  </section>`;
+}
+document.getElementById('pages').innerHTML =
+  PROBLEMS.map((p, i) => problemPage(p, i + 1)).join('') +
+  PROBLEMS.map((p, i) => answerPage(p, i + 1)).join('');
+document.getElementById('showAns').onchange = e => document.body.classList.toggle('noAns', !e.target.checked);
+
+// ===== エディタ（index.html）形式 v2 への変換 =====
+// エディタの盤面は20×16マス。12×12の問題を中央に置くため (4,2) ずらす。
+// hidden は「消した範囲」= 残す弧の補集合（ラジアン、0〜2πで重なりなし）
+const TAU = Math.PI * 2, OFF = [4, 2];
+function toEditor(p) {
+  const circles = [], hidden = {}, keyOf = new Map();
+  p.items.forEach(it => {
+    const k = [it.c[0], it.c[1], it.r].join(',');
+    let c = keyOf.get(k);
+    if (!c) { c = { id: circles.length + 1, x: it.c[0] + OFF[0], y: it.c[1] + OFF[1], r: it.r }; circles.push(c); keyOf.set(k, c); }
+    if (!it.keep) return;
+    const norm = a => ((a % TAU) + TAU) % TAU;
+    const s = norm(rad(it.keep[1])), e = norm(rad(it.keep[0]));  // 消す範囲: 残す弧の終わり → 始まり
+    hidden[c.id] = s <= e ? [[s, e]] : [[s, TAU], [0, e]].filter(([a, b]) => b - a > 1e-9);
+  });
+  return { version: 2, circles, hidden, fills: [], nextId: circles.length + 1 };
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.save'); if (!b) return;
+  const p = PROBLEMS[+b.dataset.n];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(toEditor(p), null, 2)], { type: 'application/json' }));
+  a.download = `compass-problem-${+b.dataset.n + 1}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+window.__problems = { PROBLEMS, toEditor };
+})();
+</script>
+</body>
+</html>
