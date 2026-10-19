@@ -23,10 +23,24 @@ button.danger{color:var(--danger);border-color:#efb7b1}
 button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px}
 
 /* ヘッダー：全モード共通の操作 */
-header{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--line)}
+header{flex:none;position:relative;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--line)}
 header h1{font-size:18px;margin:0 auto 0 4px;white-space:nowrap}
 header .sep{width:1px;align-self:stretch;background:var(--line);margin:4px 2px}
-#gridToggle[aria-pressed=true]{background:var(--accentSoft);border-color:#8cbfe6}
+#gridToggle[aria-pressed=true],#gridMenu[aria-expanded=true],#fullscreen[aria-pressed=true]{background:var(--accentSoft);border-color:#8cbfe6}
+.split{display:flex}
+.split #gridToggle{border-radius:10px 0 0 10px}
+.split #gridMenu{border-radius:0 10px 10px 0;border-left:0;padding:6px 8px}
+#gridMenu svg{width:16px;height:16px}
+#fullscreen .fsOff,#fullscreen[aria-pressed=true] .fsOn{display:none}
+#fullscreen[aria-pressed=true] .fsOff{display:inline}
+header ruby rt{font-size:.5em}
+
+/* ます目の設定（ヘッダーの ▾ から開く） */
+.gridPop{position:fixed;z-index:10;width:320px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 70px);overflow:auto;background:#fff;border:1px solid #c3ccd7;border-radius:12px;box-shadow:0 6px 24px #0003;padding:12px;display:flex;flex-direction:column;gap:10px}
+.gridPop h2{font-size:16px;margin:0}
+.gridPop .countRow{display:grid;grid-template-columns:40px 1fr;align-items:center;gap:6px;font-weight:700}
+.gridPop .segBtns button{min-height:52px;padding:4px;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.gridPop .segBtns svg{width:26px;height:26px;stroke-width:1.4;stroke-linecap:butt}
 
 .app{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) 280px;gap:10px;padding:10px}
 
@@ -47,7 +61,11 @@ header .sep{width:1px;align-self:stretch;background:var(--line);margin:4px 2px}
 #fillLayer{transition:opacity .15s}
 #board{touch-action:none;user-select:none;-webkit-user-select:none}
 #board.noGrid #gridLayer{display:none}
-#board .grid{stroke:#d8dde3;stroke-width:.7;fill:none}
+#board .grid line{stroke:var(--gMaj);stroke-width:var(--gMajW)}
+#board .grid line.minor{stroke:var(--gMin);stroke-width:var(--gMinW)}
+#board[data-tone=light]{--gMaj:#e4e8ec;--gMajW:.6;--gMin:#eff2f5;--gMinW:.45}
+#board[data-tone=normal]{--gMaj:#d3d9e0;--gMajW:.7;--gMin:#e8ecf0;--gMinW:.5}
+#board[data-tone=dark]{--gMaj:#7d8896;--gMajW:1.1;--gMin:#b4bdc8;--gMinW:.6}
 #board .frame{stroke:#8f9aa8;stroke-width:1.4;fill:none}
 #board .circleLine{stroke:#111827;stroke-width:2.4;fill:none;stroke-linecap:round}
 #board .circleLine.sel{stroke:#1684c7;stroke-width:3.2}
@@ -107,12 +125,12 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
 @media print{
   @page{size:A4 landscape;margin:8mm}
   body{background:#fff;height:auto;overflow:visible;display:block}
-  header,.modes,.panel,.status{display:none!important}
+  header,.modes,.panel,.status,.gridPop{display:none!important}
   .app{display:block;padding:0}
   .boardBox{display:block;container-type:normal}
   .boardWrap{width:min(100%,calc(190mm * var(--w) / var(--h)));margin:0 auto;box-shadow:none;border-radius:0}
   #ghostLayer,#overlay{display:none}
-  #board .grid{stroke:#cfd4da;stroke-width:.55}
+  #board[data-tone=normal]{--gMaj:#cfd4da;--gMajW:.55;--gMin:#e3e7ec;--gMinW:.4}
   #board .circleLine,#board .circleLine.sel{stroke:#000;stroke-width:1.6}
 }
 </style>
@@ -123,8 +141,12 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
   <button id="undo" title="もどす（Ctrl+Z）"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg> <span class="lbl">もどす</span></button>
   <button id="redo" title="やりなおす（Ctrl+Y）"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg> <span class="lbl">やりなおす</span></button>
   <span class="sep"></span>
-  <button id="gridToggle" aria-pressed="true" title="ます目を 見せる／かくす（いんさつにも 反映）"><svg viewBox="0 0 24 24"><path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18"/></svg> <span class="lbl">ます目</span></button>
+  <span class="split">
+    <button id="gridToggle" aria-pressed="true" title="ます目を 見せる／かくす（いんさつにも 反映）"><svg viewBox="0 0 24 24"><path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18"/></svg> <span class="lbl">ます目</span></button>
+    <button id="gridMenu" aria-expanded="false" aria-controls="gridPop" title="ます目の 数・こまかさ・こさ"><svg viewBox="0 0 16 16"><path d="m3 6 5 5 5-5"/></svg></button>
+  </span>
   <button id="print"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg> <span class="lbl">いんさつ</span></button>
+  <button id="fullscreen" aria-pressed="false" title="全画面（もう一度 おすと もどる）"><svg viewBox="0 0 24 24"><path class="fsOn" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path class="fsOff" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg> <span class="lbl"><ruby>全画面<rt>ぜんがめん</rt></ruby></span></button>
   <span class="sep"></span>
   <button id="clearAll" class="danger"><span>ぜんぶ けす</span></button>
 </header>
@@ -174,7 +196,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
           <output id="selR"></output>
           <button id="selRplus" aria-label="半径を 大きく">＋</button>
         </div>
-        <div class="pad" aria-label="1ますずつ うごかす">
+        <div class="pad" aria-label="すこしずつ うごかす">
           <button class="u" data-dx="0" data-dy="-1" aria-label="上へ">▲</button>
           <button class="l" data-dx="-1" data-dy="0" aria-label="左へ">◀</button>
           <button class="r" data-dx="1" data-dy="0" aria-label="右へ">▶</button>
@@ -204,9 +226,9 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     <details class="teacher" id="teacher">
       <summary>先生用（数値で入力・データ保存）</summary>
       <div class="grid3">
-        <label>中心X<input id="tx" type="number" inputmode="numeric" step="1"></label>
-        <label>中心Y<input id="ty" type="number" inputmode="numeric" step="1"></label>
-        <label>半径<input id="tr" type="number" inputmode="numeric" step="1"></label>
+        <label>中心X<input id="tx" type="number" inputmode="decimal" step="1"></label>
+        <label>中心Y<input id="ty" type="number" inputmode="decimal" step="1"></label>
+        <label>半径<input id="tr" type="number" inputmode="decimal" step="1"></label>
       </div>
       <p class="note" id="tNote">「うごかす」で円を選ぶと数値で変更できます（入力後すぐ反映）。</p>
       <div class="row" style="margin-top:6px">
@@ -219,13 +241,34 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
   </aside>
 </div>
 
+<div id="gridPop" class="gridPop" role="dialog" aria-label="ます目の 設定" hidden>
+  <h2>ます目の 数</h2>
+  <div class="countRow"><span>よこ</span><div class="stepper"><button id="colsMinus" aria-label="よこの ます目を へらす">−</button><output id="colsOut"></output><button id="colsPlus" aria-label="よこの ます目を ふやす">＋</button></div></div>
+  <div class="countRow"><span>たて</span><div class="stepper"><button id="rowsMinus" aria-label="たての ます目を へらす">−</button><output id="rowsOut"></output><button id="rowsPlus" aria-label="たての ます目を ふやす">＋</button></div></div>
+  <h2>1ますを 分ける</h2>
+  <div class="segBtns" id="gridSub">
+    <button data-sub="1" aria-pressed="true"><svg viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20"/></svg>分けない</button>
+    <button data-sub="2" aria-pressed="false"><svg viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20"/><path d="M13 3v20M3 13h20"/></svg>2つに</button>
+    <button data-sub="5" aria-pressed="false"><svg viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20"/><path d="M7 3v20M3 7h20"/><path d="M11 3v20M3 11h20"/><path d="M15 3v20M3 15h20"/><path d="M19 3v20M3 19h20"/></svg>5つに</button>
+  </div>
+  <p class="note">分けると、円の 中心と <ruby>半径<rt>はんけい</rt></ruby>を こまかく きめられます。</p>
+  <h2>ます目の こさ</h2>
+  <div class="segBtns" id="gridTone">
+    <button data-tone="light" aria-pressed="false"><svg viewBox="0 0 26 26" style="stroke:#c9d0d8;stroke-width:1"><path d="M3 3h20v20H3zM13 3v20M3 13h20"/></svg>うすい</button>
+    <button data-tone="normal" aria-pressed="true"><svg viewBox="0 0 26 26" style="stroke:#9aa5b1;stroke-width:1.4"><path d="M3 3h20v20H3zM13 3v20M3 13h20"/></svg>ふつう</button>
+    <button data-tone="dark" aria-pressed="false"><svg viewBox="0 0 26 26" style="stroke:#4b5563;stroke-width:2"><path d="M3 3h20v20H3zM13 3v20M3 13h20"/></svg>こい</button>
+  </div>
+  <button id="gridClose" class="wide">とじる</button>
+</div>
+
 <script>
 (() => {
 'use strict';
 // ===== 定数（単一真実源） =====
-const COLS = 20, ROWS = 16, STEP = 32, PAD = 12;
-const W = COLS * STEP + PAD * 2, H = ROWS * STEP + PAD * 2;
-const R_MIN = 1, R_MAX = 12;
+const PAD = 12, BOARD_W = 640, BOARD_H = 512;  // ます目の数を変えても盤面の大きさ・線の太さは保つ（1ますの大きさが変わる）
+const COLS_LIM = [4, 40], ROWS_LIM = [4, 30], SUBS = [1, 2, 5], TONES = ['light', 'normal', 'dark'];
+// 以下は state.cols/rows/sub から applyGrid() で決まる。U＝中心・半径の最小きざみ（ます）
+let COLS, ROWS, SUB, U, STEP, W, H, R_MIN, R_MAX, NW, NH, N, FX0, FX1, FY0, FY1, gridKey = null;
 const S = 2;          // 塗り判定・塗り画像の解像度倍率（印刷時のにじみ対策）
 const WALL_W = 2.0;   // 塗り判定での線の太さ。表示線(2.4)より細くし、塗りが線の下まで届くようにする
 const TOL_PX = { touch: 22, pen: 14, mouse: 10 };  // 当たり判定の半径（画面px）。指は児童の精度を前提に大きく
@@ -246,13 +289,14 @@ const HINT = {
 };
 
 // ===== 状態 =====
-// circles: {id,x,y,r}（ます目単位の整数）
+// cols,rows: ます目の数　sub: 1ますを いくつに 分けるか（1/2/5）
+// circles: {id,x,y,r}（ます目単位。1/sub きざみ）
 // hidden:  {円id: [[開始角,終了角],...]}  角度は0〜2πで昇順・重なりなし。けした線の範囲
 // fills:   {ref,u,v,color,open}  塗った点。ref=その点を囲む最小の円（円に乗って一緒に動く）。
 //          u,v は ref の中心からの位置を半径で割った値（ref=null なら ます目座標）。
 //          open=塗った時点で外枠に接していたか（false の塗りが枠に届いたら「もれた」とみなして外す）
-let state = { circles: [], hidden: {}, fills: [], nextId: 1 };
-let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide' };
+let state = { cols: 20, rows: 16, sub: 1, circles: [], hidden: {}, fills: [], nextId: 1 };
+let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal' };
 let selectedId = null, undoStack = [], redoStack = [];
 let gesture = null, hover = null;
 
@@ -266,10 +310,13 @@ const toPx = (gx, gy) => [PAD + gx * STEP, PAD + gy * STEP];
 const toGrid = (x, y) => [(x - PAD) / STEP, (y - PAD) / STEP];
 const inGrid = (gx, gy) => gx >= -1e-9 && gx <= COLS + 1e-9 && gy >= -1e-9 && gy <= ROWS + 1e-9;
 const norm = a => { a %= TAU; return a < 0 ? a + TAU : a; };
+const snapV = v => Math.round(v * SUB) / SUB;
+const fmt = v => String(+v.toFixed(2));
+const addU = (v, k) => +(v + k * U).toFixed(6);  // ±きざみ。分け方を変える前の位置は丸め直さない
 
 // ===== 保存・取り消し =====
 const snap = () => JSON.stringify(state);
-function save() { try { localStorage.setItem(STORE, snap()); } catch (e) {} }
+function save() { try { localStorage.setItem(STORE, JSON.stringify({ version: 2, ...state })); } catch (e) {} }
 function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify(ui)); } catch (e) {} }
 function finish(before) {
   if (snap() === before) { render(); return false; }
@@ -385,15 +432,29 @@ function arcShape(c, s, e, cls, parent) {
   const x1 = cx + R * Math.cos(s), y1 = cy + R * Math.sin(s), x2 = cx + R * Math.cos(e), y2 = cy + R * Math.sin(e);
   return el('path', { d: `M${x1} ${y1}A${R} ${R} 0 ${e - s > Math.PI ? 1 : 0} 1 ${x2} ${y2}`, class: cls }, parent);
 }
-function buildStatic() {
+function applyGrid() {
+  COLS = state.cols; ROWS = state.rows; SUB = state.sub; U = 1 / SUB;
+  STEP = Math.min(BOARD_W / COLS, BOARD_H / ROWS);
+  W = COLS * STEP + PAD * 2; H = ROWS * STEP + PAD * 2;
+  R_MIN = U; R_MAX = Math.max(12, Math.ceil(Math.max(COLS, ROWS) * .6));
+  NW = Math.round(W * S); NH = Math.round(H * S); N = NW * NH;
+  FX0 = FY0 = Math.ceil((PAD + WALL_W) * S); FX1 = Math.floor((PAD + COLS * STEP - WALL_W) * S); FY1 = Math.floor((PAD + ROWS * STEP - WALL_W) * S);
+  stack = labelBuf = fillImg = null; wallCanvas = null;
+  wallCache = { key: null, walls: null }; fillCache = { key: null, labels: null };
+  fillCanvas.width = NW; fillCanvas.height = NH;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  $('boardWrap').style.setProperty('--w', W); $('boardWrap').style.setProperty('--h', H);
-  document.documentElement.style.setProperty('--w', W); document.documentElement.style.setProperty('--h', H);
+  for (const t of [$('boardWrap'), document.documentElement]) { t.style.setProperty('--w', W); t.style.setProperty('--h', H); }
   for (const r of [$('clipRect'), $('frame')]) { r.setAttribute('x', PAD); r.setAttribute('y', PAD); r.setAttribute('width', COLS * STEP); r.setAttribute('height', ROWS * STEP); }
-  const g = $('gridLayer');
-  for (let i = 1; i < COLS; i++) el('line', { x1: PAD + i * STEP, y1: PAD, x2: PAD + i * STEP, y2: PAD + ROWS * STEP }, g);
-  for (let j = 1; j < ROWS; j++) el('line', { x1: PAD, y1: PAD + j * STEP, x2: PAD + COLS * STEP, y2: PAD + j * STEP }, g);
-  fillCanvas.width = W * S; fillCanvas.height = H * S;
+  const g = $('gridLayer'), d = STEP / SUB, major = [], minor = [];
+  g.replaceChildren();
+  for (let i = 1; i < COLS * SUB; i++) (i % SUB ? minor : major).push({ x1: PAD + i * d, y1: PAD, x2: PAD + i * d, y2: PAD + ROWS * STEP });
+  for (let j = 1; j < ROWS * SUB; j++) (j % SUB ? minor : major).push({ x1: PAD, y1: PAD + j * d, x2: PAD + COLS * STEP, y2: PAD + j * d });
+  for (const a of minor) el('line', { ...a, class: 'minor' }, g);  // 太い線を上に重ねる
+  for (const a of major) el('line', a, g);
+  ui.radius = clamp(snapV(ui.radius) || 3, R_MIN, R_MAX);
+  gridKey = `${COLS}x${ROWS}/${SUB}`;
+}
+function buildStatic() {
   const sw = $('swatches');
   for (const c of COLORS.concat([{ name: 'けす', hex: 'erase' }])) {
     const b = document.createElement('button');
@@ -430,7 +491,7 @@ function renderOverlay() {
     if (gesture) {
       el('line', { x1: cx, y1: cy, x2: cx + R, y2: cy, class: 'radiusLine' }, overlay);
       const t = el('text', { x: cx + R / 2, y: cy - 10, 'text-anchor': 'middle', class: 'label' }, overlay);
-      t.textContent = `はんけい ${g.r}`;
+      t.textContent = `はんけい ${fmt(g.r)}`;
     }
   }
   if (ui.mode === 'arc' && !gesture && hover && hover.type === 'arc') {
@@ -440,16 +501,16 @@ function renderOverlay() {
 function renderPanel() {
   document.querySelectorAll('.modeBtn').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === ui.mode));
   document.querySelectorAll('.ctx[data-mode]').forEach(s => { s.hidden = s.dataset.mode !== ui.mode; });
-  $('addR').innerHTML = `${ui.radius}<small>ます</small>`;
+  $('addR').innerHTML = `${fmt(ui.radius)}<small>ます</small>`;
   $('addRminus').disabled = ui.radius <= R_MIN; $('addRplus').disabled = ui.radius >= R_MAX;
   const sel = ui.mode === 'move' ? cById(selectedId) : null;
   $('moveNone').hidden = !!sel; $('moveSel').hidden = !sel;
   if (sel) {
     $('selTitle').innerHTML = `えらんだ 円の ${RB('半径', 'はんけい')}`;
-    $('selR').innerHTML = `${sel.r}<small>ます</small>`;
+    $('selR').innerHTML = `${fmt(sel.r)}<small>ます</small>`;
     $('selRminus').disabled = sel.r <= R_MIN; $('selRplus').disabled = sel.r >= R_MAX;
     document.querySelectorAll('.pad button').forEach(b => {
-      const nx = sel.x + +b.dataset.dx, ny = sel.y + +b.dataset.dy; b.disabled = nx < 0 || nx > COLS || ny < 0 || ny > ROWS;
+      const nx = sel.x + b.dataset.dx * U, ny = sel.y + b.dataset.dy * U; b.disabled = nx < 0 || nx > COLS || ny < 0 || ny > ROWS;
     });
   }
   document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', b.dataset.color === ui.color));
@@ -458,28 +519,31 @@ function renderPanel() {
   $('clearFills').disabled = !state.fills.length;
   $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length;
   $('clearAll').disabled = !state.circles.length && !state.fills.length;
-  $('gridToggle').setAttribute('aria-pressed', ui.grid); svg.classList.toggle('noGrid', !ui.grid);
+  $('gridToggle').setAttribute('aria-pressed', ui.grid); svg.classList.toggle('noGrid', !ui.grid); svg.dataset.tone = ui.tone;
+  $('colsOut').textContent = COLS; $('rowsOut').textContent = ROWS;
+  $('colsMinus').disabled = COLS <= COLS_LIM[0]; $('colsPlus').disabled = COLS >= COLS_LIM[1];
+  $('rowsMinus').disabled = ROWS <= ROWS_LIM[0]; $('rowsPlus').disabled = ROWS >= ROWS_LIM[1];
+  document.querySelectorAll('#gridSub button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.sub === SUB));
+  document.querySelectorAll('#gridTone button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tone === ui.tone));
   const tc = cById(selectedId) && ui.mode === 'move' ? cById(selectedId) : null;
   for (const [id, k] of [['tx', 'x'], ['ty', 'y'], ['tr', 'r']]) {
     const inp = $(id); inp.disabled = !tc;
-    if (document.activeElement !== inp) inp.value = tc ? tc[k] : '';
+    inp.step = U; if (document.activeElement !== inp) inp.value = tc ? fmt(tc[k]) : '';
   }
   $('tNote').hidden = !!tc;
 }
 // 塗り直しは低速端末で数百msかかりうるため、円の描画を先に画面へ出してから行う
 let fillTimer = 0;
 function render() {
+  if (gridKey !== `${state.cols}x${state.rows}/${state.sub}`) applyGrid();
   renderDrawing(); renderOverlay(); renderPanel();
   if (gesture) { updateFills(); return; }
   cancelAnimationFrame(fillTimer); fillTimer = requestAnimationFrame(() => setTimeout(updateFills, 0));
 }
 
 // ===== 塗り：線を画像にして、塗った点から広がる範囲を求める =====
-const NW = W * S, NH = H * S, N = NW * NH;
 let wallCache = { key: null, walls: null }, fillCache = { key: null, labels: null }, stack = null, wallCanvas = null, fillImg = null, labelBuf = null;
 const geomKey = () => JSON.stringify([state.circles, state.hidden]);
-const FX0 = Math.ceil((PAD + WALL_W) * S), FX1 = Math.floor((PAD + COLS * STEP - WALL_W) * S);
-const FY0 = FX0, FY1 = Math.floor((PAD + ROWS * STEP - WALL_W) * S);
 function getWalls() {
   const key = geomKey();
   if (wallCache.key === key) return wallCache.walls;
@@ -604,7 +668,7 @@ function addCircle(x, y, r) {
   const id = state.nextId;
   commit(() => { state.circles.push({ id, x, y, r }); state.nextId++; });
   selectedId = id; renderPanel();
-  say(`円を かきました。（${RB('半径', 'はんけい')} ${r}ます）`);
+  say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}ます）`);
 }
 svg.addEventListener('contextmenu', e => e.preventDefault());
 svg.addEventListener('pointerdown', e => {
@@ -612,7 +676,7 @@ svg.addEventListener('pointerdown', e => {
   const p = svgPoint(e); hover = null;
   if (ui.mode === 'fill') { fillTap(p); return; }
   if (ui.mode === 'add') {
-    const [gx, gy] = toGrid(p.x, p.y), x = Math.round(gx), y = Math.round(gy);
+    const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (!inGrid(x, y)) { say('ます目の 中を おしてください。'); return; }
     gesture = { type: 'add', x, y, r: ui.radius, dragged: false, pid: e.pointerId };
   } else if (ui.mode === 'move') {
@@ -644,14 +708,14 @@ svg.addEventListener('pointermove', e => {
   if (gesture.type === 'add') {
     const [cx, cy] = toPx(gesture.x, gesture.y), dpx = Math.hypot(p.x - cx, p.y - cy);
     if (dpx * scale() > DRAG_PX) gesture.dragged = true;
-    if (gesture.dragged) gesture.r = clamp(Math.round(dpx / STEP), R_MIN, R_MAX);
+    if (gesture.dragged) gesture.r = clamp(snapV(dpx / STEP), R_MIN, R_MAX);
     renderOverlay();
   } else if (gesture.type === 'move') {
     const dx = (p.x - gesture.start.x), dy = (p.y - gesture.start.y);
     if (!gesture.moved && Math.hypot(dx, dy) * scale() > DRAG_PX) gesture.moved = true;
     if (!gesture.moved) return;
     const c = cById(gesture.id); if (!c) return;
-    const nx = clamp(Math.round(gesture.orig.x + dx / STEP), 0, COLS), ny = clamp(Math.round(gesture.orig.y + dy / STEP), 0, ROWS);
+    const nx = clamp(snapV(gesture.orig.x + dx / STEP), 0, COLS), ny = clamp(snapV(gesture.orig.y + dy / STEP), 0, ROWS);
     if (nx !== c.x || ny !== c.y) { c.x = nx; c.y = ny; renderDrawing(); renderPanel(); }
   } else if (gesture.type === 'arc') {
     const c = nearestLine(p, tolOf(e));
@@ -681,7 +745,7 @@ function updateHover(e, p) {
   if (e.pointerType === 'touch') return;
   let h = null;
   if (ui.mode === 'add') {
-    const [gx, gy] = toGrid(p.x, p.y), x = Math.round(gx), y = Math.round(gy);
+    const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (inGrid(x, y)) h = { type: 'add', x, y, r: ui.radius };
   } else if (ui.mode === 'arc') {
     const c = nearestLine(p, tolOf(e));
@@ -695,12 +759,12 @@ function updateHover(e, p) {
 
 // ===== パネル・ヘッダーの操作 =====
 document.querySelectorAll('.modeBtn').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-$('addRminus').onclick = () => { ui.radius = clamp(ui.radius - 1, R_MIN, R_MAX); saveUI(); renderPanel(); };
-$('addRplus').onclick = () => { ui.radius = clamp(ui.radius + 1, R_MIN, R_MAX); saveUI(); renderPanel(); };
+$('addRminus').onclick = () => { ui.radius = clamp(addU(ui.radius, -1), R_MIN, R_MAX); saveUI(); renderPanel(); };
+$('addRplus').onclick = () => { ui.radius = clamp(addU(ui.radius, 1), R_MIN, R_MAX); saveUI(); renderPanel(); };
 function editSelected(fn, msg) { const c = cById(selectedId); if (!c) return; if (commit(() => fn(c)) && msg) say(msg); }
-$('selRminus').onclick = () => editSelected(c => { c.r = clamp(c.r - 1, R_MIN, R_MAX); });
-$('selRplus').onclick = () => editSelected(c => { c.r = clamp(c.r + 1, R_MIN, R_MAX); });
-function nudge(dx, dy) { editSelected(c => { c.x = clamp(c.x + dx, 0, COLS); c.y = clamp(c.y + dy, 0, ROWS); }); }
+$('selRminus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, -1), R_MIN, R_MAX); });
+$('selRplus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, 1), R_MIN, R_MAX); });
+function nudge(dx, dy) { editSelected(c => { c.x = clamp(addU(c.x, dx), 0, COLS); c.y = clamp(addU(c.y, dy), 0, ROWS); }); }
 document.querySelectorAll('.pad button').forEach(b => b.onclick = () => nudge(+b.dataset.dx, +b.dataset.dy));
 function deleteSelected() {
   const id = selectedId; if (!cById(id)) return;
@@ -717,6 +781,42 @@ $('clearFills').onclick = () => { if (commit(() => { state.fills = []; })) say('
 $('undo').onclick = undo; $('redo').onclick = redo;
 $('gridToggle').onclick = () => { ui.grid = !ui.grid; saveUI(); renderPanel(); say(ui.grid ? 'ます目を 見せます。' : 'ます目を かくしました。いんさつにも ます目が 出ません。'); };
 $('print').onclick = () => window.print();
+// ます目の設定：数・分け方は作図の一部（もどす・書き出しの対象）、こさは表示の好み
+function showGrid() { if (!ui.grid) { ui.grid = true; saveUI(); } }
+function setCount(k, d) {
+  const [lo, hi] = k === 'cols' ? COLS_LIM : ROWS_LIM, v = clamp(state[k] + d, lo, hi);
+  showGrid();
+  if (commit(() => { state[k] = v; })) say(`ます目を ${k === 'cols' ? 'よこ' : 'たて'} ${v}ますに しました。`);
+}
+$('colsMinus').onclick = () => setCount('cols', -1); $('colsPlus').onclick = () => setCount('cols', 1);
+$('rowsMinus').onclick = () => setCount('rows', -1); $('rowsPlus').onclick = () => setCount('rows', 1);
+document.querySelectorAll('#gridSub button').forEach(b => b.onclick = () => {
+  const v = +b.dataset.sub; showGrid();
+  if (commit(() => { state.sub = v; })) say(v === 1 ? '1ますを 分けないように しました。' : `1ますを ${v}つに 分けました。`);
+});
+document.querySelectorAll('#gridTone button').forEach(b => b.onclick = () => { ui.tone = b.dataset.tone; showGrid(); saveUI(); renderPanel(); });
+function openGridPop(open) {
+  const pop = $('gridPop'), btn = $('gridMenu');
+  pop.hidden = !open; btn.setAttribute('aria-expanded', open);
+  if (!open) return;
+  const r = btn.getBoundingClientRect();
+  pop.style.top = r.bottom + 6 + 'px';
+  pop.style.left = Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8)) + 'px';
+}
+$('gridMenu').onclick = () => openGridPop($('gridPop').hidden);
+$('gridClose').onclick = () => openGridPop(false);
+document.addEventListener('pointerdown', e => { if (!$('gridPop').hidden && !e.target.closest('#gridPop,#gridMenu')) openGridPop(false); });
+addEventListener('resize', () => { if (!$('gridPop').hidden) openGridPop(true); });
+// 全画面（iPhone など未対応の端末ではボタンを出さない）
+const docEl = document.documentElement, fsReq = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+const fsNow = () => document.fullscreenElement || document.webkitFullscreenElement;
+if (!fsReq) $('fullscreen').hidden = true;
+$('fullscreen').onclick = () => {
+  const p = fsNow() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document) : fsReq.call(docEl);
+  if (p && p.catch) p.catch(() => say('全画面に できませんでした。'));
+};
+const fsSync = () => { $('fullscreen').setAttribute('aria-pressed', !!fsNow()); if (!$('gridPop').hidden) openGridPop(true); };
+document.addEventListener('fullscreenchange', fsSync); document.addEventListener('webkitfullscreenchange', fsSync);
 $('clearAll').onclick = () => {
   if (!confirm('円・けした線・色を ぜんぶ けしますか？\n（「もどす」で もとに もどせます）')) return;
   commit(() => { state.circles = []; state.hidden = {}; state.fills = []; });
@@ -724,7 +824,7 @@ $('clearAll').onclick = () => {
 };
 for (const [id, k] of [['tx', 'x'], ['ty', 'y'], ['tr', 'r']]) {
   $(id).addEventListener('change', e => {
-    const v = Math.round(Number(e.target.value));
+    const v = snapV(Number(e.target.value));
     if (!Number.isFinite(v)) { renderPanel(); return; }
     editSelected(c => { c[k] = k === 'r' ? clamp(v, R_MIN, R_MAX) : clamp(v, 0, k === 'x' ? COLS : ROWS); });
     renderPanel();
@@ -748,6 +848,7 @@ $('jsonFile').onchange = async e => {
 document.addEventListener('keydown', e => {
   const a = document.activeElement, typing = a && (/^(input|textarea|select)$/i.test(a.tagName) || a.isContentEditable);
   if (typing) return;
+  if (e.key === 'Escape' && !$('gridPop').hidden) { openGridPop(false); return; }
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
@@ -765,7 +866,8 @@ function parseData(d) {
   for (const [k, list] of Object.entries(d.hidden || {})) if (ids.has(+k) && Array.isArray(list)) { const m = mergeIv(list.filter(iv => iv.length === 2 && iv.every(Number.isFinite))); if (m.length) hidden[k] = m; }
   const fills = (d.fills || []).filter(f => /^#[0-9a-f]{6}$/i.test(f.color) && Number.isFinite(f.u) && Number.isFinite(f.v));
   const nextId = Math.max(d.nextId || 1, ...circles.map(c => c.id + 1));
-  return { circles, hidden, fills, nextId };
+  const int = (v, [lo, hi], def) => Number.isInteger(v) && v >= lo && v <= hi ? v : def;
+  return { cols: int(d.cols, COLS_LIM, 20), rows: int(d.rows, ROWS_LIM, 16), sub: SUBS.includes(d.sub) ? d.sub : 1, circles, hidden, fills, nextId };
 }
 // 旧版：けした弧は {circleId,start,end,dir}、塗りは画像（data URL）とクリック位置（旧座標）
 async function fromV1(d) {
@@ -784,7 +886,7 @@ async function fromV1(d) {
     const color = await pixelColor(f.data, f.x, f.y).catch(() => null); if (!color) continue;
     fills.push({ ...makeRef((f.x - 80) / 32, (f.y - 24) / 32, circles), color });  // 旧版の盤面: 原点(80,24)・1ます32
   }
-  return { circles, hidden, fills, nextId: Math.max(d.nextId || 1, ...circles.map(c => c.id + 1)) };
+  return { cols: 20, rows: 16, sub: 1, circles, hidden, fills, nextId: Math.max(d.nextId || 1, ...circles.map(c => c.id + 1)) };
 }
 function pixelColor(url, x, y) {
   return new Promise((res, rej) => {
@@ -801,10 +903,12 @@ function pixelColor(url, x, y) {
 async function load() {
   try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_STORE)) || {}); } catch (e) {}
   if (!HINT[ui.mode]) ui.mode = 'add';
-  ui.radius = clamp(Math.round(ui.radius) || 3, R_MIN, R_MAX);
+  if (!TONES.includes(ui.tone)) ui.tone = 'normal';
   $('teacher').open = !!ui.teacherOpen;
   try {
-    const v2 = parseData(JSON.parse(localStorage.getItem(STORE)));
+    const saved = JSON.parse(localStorage.getItem(STORE));
+    if (saved && saved.version === undefined) saved.version = 2;  // 以前の自動保存は version なしで保存していた
+    const v2 = parseData(saved);
     if (v2) { state = v2; return; }
     const v1 = await fromV1(JSON.parse(localStorage.getItem(STORE_V1)));
     if (v1) { state = v1; save(); }
