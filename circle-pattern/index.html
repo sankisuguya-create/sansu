@@ -53,6 +53,9 @@ header .sep{width:1px;align-self:stretch;background:var(--line);margin:4px 2px}
 #board .circleLine.sel{stroke:#1684c7;stroke-width:3.2}
 #board .ghost{stroke:#9aa5b1;stroke-width:1.6;fill:none;stroke-dasharray:5 5}
 #board .ghost.sel{stroke:#1684c7}
+#board .erasedRed{stroke:#d62828;stroke-width:2.4;fill:none;stroke-linecap:round}
+.segBtns{display:flex;gap:6px}.segBtns button{flex:1}
+.segBtns button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 #board .center{fill:#9aa5b1}
 #board .centerSel{fill:#1684c7}
 #board .dot{fill:#fff;stroke:#1684c7;stroke-width:1.6}
@@ -183,6 +186,11 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
 
     <section class="ctx" data-mode="arc" hidden>
       <p class="note">○ で 区切られた 線を 1本ずつ けせます。けした 線は 点線で のこるので、おすと もどります。</p>
+      <h2>けした 線の 見せ方（ぜんぶ）</h2>
+      <div class="segBtns" id="erasedStyle">
+        <button data-style="hide" aria-pressed="true">かくす</button>
+        <button data-style="red" aria-pressed="false">赤で 見せる</button>
+      </div>
       <button id="restoreArcs" class="wide">けした 線を ぜんぶ もどす</button>
     </section>
 
@@ -244,7 +252,7 @@ const HINT = {
 //          u,v は ref の中心からの位置を半径で割った値（ref=null なら ます目座標）。
 //          open=塗った時点で外枠に接していたか（false の塗りが枠に届いたら「もれた」とみなして外す）
 let state = { circles: [], hidden: {}, fills: [], nextId: 1 };
-let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false };
+let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide' };
 let selectedId = null, undoStack = [], redoStack = [];
 let gesture = null, hover = null;
 
@@ -401,7 +409,8 @@ function renderDrawing() {
   for (const c of state.circles) {
     const sel = m === 'move' && c.id === selectedId;
     for (const [s, e] of visibleArcs(c)) arcShape(c, s, e, 'circleLine' + (sel ? ' sel' : ''), drawLayer);
-    if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
+    if (ui.erased === 'red') for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'erasedRed', drawLayer);
+    else if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
     if (m === 'move') { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
   }
   if (m === 'arc') {
@@ -444,6 +453,7 @@ function renderPanel() {
     });
   }
   document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', b.dataset.color === ui.color));
+  document.querySelectorAll('#erasedStyle button').forEach(b => b.setAttribute('aria-pressed', b.dataset.style === ui.erased));
   $('restoreArcs').disabled = !Object.keys(state.hidden).length;
   $('clearFills').disabled = !state.fills.length;
   $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length;
@@ -701,6 +711,7 @@ function deleteSelected() {
   selectedId = null; renderPanel(); say('円を けしました。（「もどす」で もとに もどせます）');
 }
 $('deleteCircle').onclick = deleteSelected;
+document.querySelectorAll('#erasedStyle button').forEach(b => b.onclick = () => { ui.erased = b.dataset.style; render(); });
 $('restoreArcs').onclick = () => { if (commit(() => { state.hidden = {}; })) say('けした 線を ぜんぶ もどしました。'); };
 $('clearFills').onclick = () => { if (commit(() => { state.fills = []; })) say('色を ぜんぶ けしました。'); };
 $('undo').onclick = undo; $('redo').onclick = redo;
