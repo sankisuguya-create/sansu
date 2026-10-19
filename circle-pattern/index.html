@@ -316,7 +316,7 @@ const addU = (v, k) => +(v + k * U).toFixed(6);  // ±きざみ。分け方を�
 
 // ===== 保存・取り消し =====
 const snap = () => JSON.stringify(state);
-function save() { try { localStorage.setItem(STORE, snap()); } catch (e) {} }
+function save() { try { localStorage.setItem(STORE, JSON.stringify({ version: 2, ...state })); } catch (e) {} }
 function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify(ui)); } catch (e) {} }
 function finish(before) {
   if (snap() === before) { render(); return false; }
@@ -906,7 +906,9 @@ async function load() {
   if (!TONES.includes(ui.tone)) ui.tone = 'normal';
   $('teacher').open = !!ui.teacherOpen;
   try {
-    const v2 = parseData(JSON.parse(localStorage.getItem(STORE)));
+    const saved = JSON.parse(localStorage.getItem(STORE));
+    if (saved && saved.version === undefined) saved.version = 2;  // 以前の自動保存は version なしで保存していた
+    const v2 = parseData(saved);
     if (v2) { state = v2; return; }
     const v1 = await fromV1(JSON.parse(localStorage.getItem(STORE_V1)));
     if (v1) { state = v1; save(); }
