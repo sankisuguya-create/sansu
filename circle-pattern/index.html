@@ -312,6 +312,7 @@ const inGrid = (gx, gy) => gx >= -1e-9 && gx <= COLS + 1e-9 && gy >= -1e-9 && gy
 const norm = a => { a %= TAU; return a < 0 ? a + TAU : a; };
 const snapV = v => Math.round(v * SUB) / SUB;
 const fmt = v => String(+v.toFixed(2));
+const addU = (v, k) => +(v + k * U).toFixed(6);  // ±きざみ。分け方を変える前の位置は丸め直さない
 
 // ===== 保存・取り消し =====
 const snap = () => JSON.stringify(state);
@@ -758,12 +759,12 @@ function updateHover(e, p) {
 
 // ===== パネル・ヘッダーの操作 =====
 document.querySelectorAll('.modeBtn').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-$('addRminus').onclick = () => { ui.radius = clamp(snapV(ui.radius - U), R_MIN, R_MAX); saveUI(); renderPanel(); };
-$('addRplus').onclick = () => { ui.radius = clamp(snapV(ui.radius + U), R_MIN, R_MAX); saveUI(); renderPanel(); };
+$('addRminus').onclick = () => { ui.radius = clamp(addU(ui.radius, -1), R_MIN, R_MAX); saveUI(); renderPanel(); };
+$('addRplus').onclick = () => { ui.radius = clamp(addU(ui.radius, 1), R_MIN, R_MAX); saveUI(); renderPanel(); };
 function editSelected(fn, msg) { const c = cById(selectedId); if (!c) return; if (commit(() => fn(c)) && msg) say(msg); }
-$('selRminus').onclick = () => editSelected(c => { c.r = clamp(snapV(c.r - U), R_MIN, R_MAX); });
-$('selRplus').onclick = () => editSelected(c => { c.r = clamp(snapV(c.r + U), R_MIN, R_MAX); });
-function nudge(dx, dy) { editSelected(c => { c.x = clamp(snapV(c.x + dx * U), 0, COLS); c.y = clamp(snapV(c.y + dy * U), 0, ROWS); }); }
+$('selRminus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, -1), R_MIN, R_MAX); });
+$('selRplus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, 1), R_MIN, R_MAX); });
+function nudge(dx, dy) { editSelected(c => { c.x = clamp(addU(c.x, dx), 0, COLS); c.y = clamp(addU(c.y, dy), 0, ROWS); }); }
 document.querySelectorAll('.pad button').forEach(b => b.onclick = () => nudge(+b.dataset.dx, +b.dataset.dy));
 function deleteSelected() {
   const id = selectedId; if (!cById(id)) return;
