@@ -84,6 +84,14 @@ header ruby rt{font-size:.5em}
 #board .hl-hide{stroke:#e5484d;stroke-width:9;stroke-opacity:.55;fill:none;stroke-linecap:round}
 #board .hl-show{stroke:#1684c7;stroke-width:9;stroke-opacity:.45;fill:none;stroke-linecap:round}
 
+/* 作図のタブ（盤面の上） */
+.tabs{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.tabs button{flex:none;min-height:44px;padding:4px 12px;border-radius:10px 10px 0 0;border-bottom-width:3px;white-space:nowrap;max-width:12em;overflow:hidden;text-overflow:ellipsis}
+.tabs button.doc[aria-selected=true]{background:var(--accentSoft);border-color:#8cbfe6;border-bottom-color:var(--accent);font-weight:700}
+.tabs button.tabAct{border-radius:10px;color:var(--muted)}
+.tabs .x{margin-left:8px;color:var(--danger);font-weight:700}
+@media print{.tabs{display:none!important}}
+
 /* 右パネル：いまのモードの設定だけ */
 .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:12px}
 .panel h2{font-size:16px;margin:0}
@@ -162,6 +170,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
   </nav>
 
   <main class="stage">
+    <div class="tabs" id="tabs" role="tablist" aria-label="作った 図"></div>
     <div id="status" class="status" aria-live="polite"></div>
     <div class="boardBox">
       <div class="boardWrap" id="boardWrap">
@@ -280,7 +289,7 @@ const WALL_W = 2.0;   // 塗り判定での線の太さ。表示線(2.4)より�
 const TOL_PX = { touch: 22, pen: 14, mouse: 10 };  // 当たり判定の半径（画面px）。指は児童の精度を前提に大きく
 const DRAG_PX = 10;   // これ以上動いたら「ドラッグ」とみなす（画面px）
 const TAU = Math.PI * 2, AEPS = 1e-6;
-const STORE = 'circleArcPatternEditor.v2', STORE_V1 = 'circleArcPatternEditor.v1', UI_STORE = 'circleArcPatternEditor.ui';
+const DOCS_STORE = 'circleArcPatternEditor.docs', STORE = 'circleArcPatternEditor.v2', STORE_V1 = 'circleArcPatternEditor.v1', UI_STORE = 'circleArcPatternEditor.ui';
 const COLORS = [
   { name: 'きいろ', hex: '#f8d66d' }, { name: 'だいだい', hex: '#f4a261' },
   { name: 'もも', hex: '#f4acc4' }, { name: 'みずいろ', hex: '#8ecae6' },
@@ -306,6 +315,8 @@ const HINT = {
 let state = { cols: 20, rows: 16, sub: 1, circles: [], lines: [], hidden: {}, fills: [], nextId: 1 };
 let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal' };
 let selectedId = null, undoStack = [], redoStack = [];
+// タブ：作った図ごとに {name, state, undo, redo}。いま開いている図は state/undoStack/redoStack が本体
+let docs = [], cur = 0;
 let gesture = null, hover = null;
 
 const $ = id => document.getElementById(id);
@@ -327,7 +338,11 @@ const addU = (v, k) => +(v + k * U).toFixed(6);  // ±きざみ。分け方を�
 
 // ===== 保存・取り消し =====
 const snap = () => JSON.stringify(state);
-function save() { try { localStorage.setItem(STORE, JSON.stringify({ version: 2, ...state })); } catch (e) {} }
+function syncDoc() { const d = docs[cur]; if (d) { d.state = state; d.undo = undoStack; d.redo = redoStack; } }
+function save() {
+  syncDoc();
+  try { localStorage.setItem(DOCS_STORE, JSON.stringify({ version: 3, cur, docs: docs.map(d => ({ name: d.name, state: { version: 2, ...d.state } })) })); } catch (e) {}
+}
 function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify(ui)); } catch (e) {} }
 function finish(before) {
   if (snap() === before) { render(); return false; }
@@ -855,6 +870,42 @@ function updateHover(e, p) {
   if (JSON.stringify(h) !== JSON.stringify(hover)) { hover = h; renderOverlay(); }
 }
 
+// ===== タブ（作った図の管理） =====
+const blankState = () => ({ cols: state.cols, rows: state.rows, sub: state.sub, circles: [], lines: [], hidden: {}, fills: [], nextId: 1 });
+function nextName() { let n = docs.length + 1; while (docs.some(d => d.name === `図${n}`)) n++; return `図${n}`; }
+function openDoc(i) {
+  syncDoc(); cur = i; const d = docs[i];
+  state = d.state; undoStack = d.undo || []; redoStack = d.redo || [];
+  selectedId = null; gesture = null; hover = null; save(); render(); renderTabs();
+}
+function addDoc(st, name) { syncDoc(); docs.push({ name: name || nextName(), state: st, undo: [], redo: [] }); openDoc(docs.length - 1); }
+function renderTabs() {
+  const t = $('tabs'); t.replaceChildren();
+  docs.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.className = 'doc'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', i === cur);
+    b.title = i === cur ? 'もう一度 おすと 名前を かえられます' : d.name;
+    b.textContent = d.name;
+    if (i === cur && docs.length > 1) { const x = document.createElement('span'); x.className = 'x'; x.textContent = '×'; x.title = 'この 図を けす'; x.dataset.del = '1'; b.appendChild(x); }
+    b.onclick = e => {
+      if (e.target.dataset.del) { deleteDoc(i); return; }
+      if (i !== cur) { openDoc(i); return; }
+      const v = prompt('図の 名前', d.name); if (v && v.trim()) { d.name = v.trim().slice(0, 30); save(); renderTabs(); }
+    };
+    t.appendChild(b);
+  });
+  const add = document.createElement('button'); add.className = 'tabAct'; add.textContent = '＋ あたらしい 図';
+  add.onclick = () => { addDoc(blankState()); say('あたらしい 図を 作りました。'); };
+  const dup = document.createElement('button'); dup.className = 'tabAct'; dup.textContent = 'この 図を コピー';
+  dup.onclick = () => { const n = docs[cur].name + 'のコピー'; addDoc(JSON.parse(snap()), n); say('図を コピーしました。'); };
+  t.append(add, dup);
+  t.querySelector('[aria-selected=true]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function deleteDoc(i) {
+  if (!confirm(`「${docs[i].name}」を けしますか？\n（この 操作は もどせません）`)) return;
+  docs.splice(i, 1); cur = -1; openDoc(Math.min(i, docs.length - 1)); say('図を けしました。');
+}
+
 // ===== パネル・ヘッダーの操作 =====
 document.querySelectorAll('.modeBtn').forEach(b => b.onclick = () => setMode(b.dataset.mode));
 $('addRminus').onclick = () => { ui.radius = clamp(addU(ui.radius, -1), R_MIN, R_MAX); saveUI(); renderPanel(); };
@@ -946,7 +997,7 @@ $('jsonFile').onchange = async e => {
   try {
     const raw = JSON.parse(await f.text()), d = parseData(raw) || await fromV1(raw);
     if (!d) throw Error();
-    commit(() => { state = d; }); selectedId = null; renderPanel(); say('データを読み込みました。');
+    addDoc(d, f.name.replace(/\.json$/i, '').slice(0, 30)); say('データを あたらしい 図として 読み込みました。');
   } catch (err) { say('読み込めませんでした。書き出したJSONファイルか確認してください。'); }
 };
 document.addEventListener('keydown', e => {
@@ -1011,17 +1062,27 @@ async function load() {
   if (!TONES.includes(ui.tone)) ui.tone = 'normal';
   $('teacher').open = !!ui.teacherOpen;
   try {
+    const all = JSON.parse(localStorage.getItem(DOCS_STORE));
+    if (all && all.version === 3 && Array.isArray(all.docs)) {
+      docs = all.docs.map((d, i) => ({ name: String(d.name || `図${i + 1}`), state: parseData(d.state), undo: [], redo: [] })).filter(d => d.state);
+      if (docs.length) { cur = clamp(all.cur | 0, 0, docs.length - 1); state = docs[cur].state; return; }
+    }
+  } catch (e) {}
+  try {
     const saved = JSON.parse(localStorage.getItem(STORE));
     if (saved && saved.version === undefined) saved.version = 2;  // 以前の自動保存は version なしで保存していた
     const v2 = parseData(saved);
     if (v2) { state = v2; return; }
     const v1 = await fromV1(JSON.parse(localStorage.getItem(STORE_V1)));
-    if (v1) { state = v1; save(); }
+    if (v1) state = v1;
   } catch (e) {}
 }
 
 buildStatic();
-load().then(() => { render(); showHint(); });
+load().then(() => {
+  if (!docs.length) { docs = [{ name: '図1', state, undo: [], redo: [] }]; cur = 0; save(); }  // 以前の1枚だけの保存は 図1 に
+  render(); renderTabs(); showHint();
+});
 window.__editor = { get state() { return state; }, getWalls, render, updateFills };  // 動作確認用
 })();
 </script>
