@@ -98,6 +98,20 @@ header ruby rt{font-size:.5em}
 .shelfItem b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shelfItem small{color:var(--muted);font-size:13px}
 .shelfItem button{min-height:44px}
+/* 提出（児童）・提出の一覧（先生） */
+#submitBtn{background:#0b7a3b;border-color:#0b7a3b;color:#fff;font-weight:700}
+.kadaiTag{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em}
+.tview{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:10px;padding:10px;overflow:hidden}
+.tview .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
+.tview .bar h2{font-size:18px;margin:0 8px 0 0}
+.tview select,.tview input[type=text]{font:inherit;min-height:48px;border:1px solid #c3ccd7;border-radius:10px;padding:4px 8px}
+.tview label{display:flex;align-items:center;gap:4px;font-size:14px}
+.cards{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;align-content:start}
+.card{display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;text-align:left;min-height:0}
+.card img{width:100%;aspect-ratio:var(--w)/var(--h);object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px}
+.card b{font-size:15px}.card small{color:var(--muted);font-size:13px}
+.card.old{opacity:.6}
+@media print{.tview{display:none!important}}
 
 /* 右パネル：いまのモードの設定だけ */
 .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:12px}
@@ -163,6 +177,8 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
   </span>
   <button id="print"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg> <span class="lbl">いんさつ</span></button>
   <button id="fullscreen" aria-pressed="false" title="全画面（もう一度 おすと もどる）"><svg viewBox="0 0 24 24"><path class="fsOn" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path class="fsOff" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg> <span class="lbl"><ruby>全画面<rt>ぜんがめん</rt></ruby></span></button>
+ <span class="kadaiTag" id="kadaiTag" hidden></span>
+  <button id="submitBtn" hidden>提出する</button>
   <span class="sep"></span>
   <button id="clearAll" class="danger"><span>ぜんぶ けす</span></button>
 </header>
@@ -262,6 +278,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
         <button id="shelfSave">先生の 棚に 保存</button>
         <button id="shelfOpen">棚から 開く</button>
       </div>
+      <button id="tviewOpen" class="wide" style="margin-top:6px" hidden>児童の 提出を 見る</button>
       <p class="note" style="margin-top:6px">作図はこのブラウザに自動保存されます。別の端末へ移すときは書き出したファイルを使います。</p>
     </details>
   </aside>
@@ -285,6 +302,22 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     <button data-tone="dark" aria-pressed="false"><svg viewBox="0 0 26 26" style="stroke:#4b5563;stroke-width:2"><path d="M3 3h20v20H3zM13 3v20M3 13h20"/></svg>こい</button>
   </div>
   <button id="gridClose" class="wide">とじる</button>
+</div>
+
+<div id="tview" class="tview" hidden>
+  <div class="bar">
+    <h2>児童の 提出</h2>
+    <select id="kadaiSel" aria-label="課題"></select>
+    <button id="kadaiUrl">児童用の URLを コピー</button>
+    <button id="tviewReload">新しく する</button>
+    <label><input type="checkbox" id="showOld"> 前の 提出も 見る</label>
+    <span style="flex:1"></span>
+    <input type="text" id="kadaiNew" placeholder="新しい 課題の 名前" maxlength="30">
+    <button id="kadaiAdd">課題を 作る</button>
+    <button id="tviewClose">エディタに もどる</button>
+  </div>
+  <p class="note" id="tviewNote"></p>
+  <div class="cards" id="cards"></div>
 </div>
 
 <div id="shelfPop" class="gridPop shelfPop" role="dialog" aria-label="先生の 棚" hidden>
@@ -1033,15 +1066,121 @@ document.addEventListener('keydown', e => {
 
 // ===== 先生の棚（GAS版だけ。google.script.run があるときに出す） =====
 const gas = window.google && google.script && google.script.run;
-const SHELF_API = 1;  // Code.gs の API_VER と合わせる
+const SHELF_API = 2;  // Code.gs の API_VER と合わせる
 function call(fn, ...args) {
   return new Promise((res, rej) => gas.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
 }
-function initShelf() {
+let who = { email: '', role: 'unknown', url: '' }, KADAI = '';
+async function initShelf() {
   if (!gas) return;
-  $('shelfRow').hidden = false;
-  call('apiVersion').then(v => { if (v !== SHELF_API) say(`Code.gs と index.html の 版が ちがいます（${v}／${SHELF_API}）。同じ コミットから 両方 貼り直してください。`); }).catch(() => {});
+  try {
+    const [w, loc] = await Promise.all([call('whoami'), new Promise(res => google.script.url.getLocation(res))]);
+    who = w; const q = loc.parameter || {};
+    if (w.api !== SHELF_API) say(`Code.gs と index.html の 版が ちがいます（${w.api}／${SHELF_API}）。同じ コミットから 両方 貼り直してください。`);
+    if (w.role === 'teacher') { $('shelfRow').hidden = false; $('tviewOpen').hidden = false; }
+    if (q.kadai) { KADAI = String(q.kadai); $('kadaiTag').textContent = '課題：' + KADAI; $('kadaiTag').hidden = false; $('submitBtn').hidden = false; }
+    if (w.role === 'teacher' && q.page === 'teacher') openTview();
+  } catch (e) { say('サーバーに つながりません：' + errMsg(e)); }
 }
+// 提出用の縮小画像：色（canvas）と線（SVG）を1枚に重ねる
+const THUMB_W = 480;
+function thumbnail() {
+  return new Promise(res => {
+    const k = THUMB_W / W, c = document.createElement('canvas'); c.width = THUMB_W; c.height = Math.round(H * k);
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(fillCanvas, 0, 0, c.width, c.height);
+    const cl = svg.cloneNode(true); cl.querySelectorAll('#ghostLayer,#overlay').forEach(n => n.remove());
+    cl.setAttribute('xmlns', NS); cl.setAttribute('width', W); cl.setAttribute('height', H);
+    const css = [...document.styleSheets].flatMap(sh => { try { return [...sh.cssRules]; } catch (e) { return []; } })
+      .map(r => r.cssText).filter(t => t.startsWith('#board')).join('\n');
+    const st = document.createElementNS(NS, 'style'); st.textContent = css; cl.insertBefore(st, cl.firstChild);
+    const img = new Image(), url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(cl)], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      let d = c.toDataURL('image/png');
+      if (d.length > 45000) d = c.toDataURL('image/jpeg', .8);
+      if (d.length > 45000) d = c.toDataURL('image/jpeg', .5);
+      res(d.length > 45000 ? '' : d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(''); };
+    img.src = url;
+  });
+}
+$('submitBtn').onclick = async () => {
+  let name = '';
+  if (!who.email) {
+    name = prompt('名前（出席番号と なまえ）', ui.studentName || '');
+    if (!name || !name.trim()) return;
+    ui.studentName = name.trim(); saveUI();
+  }
+  if (!confirm(`「${KADAI}」に いまの 図を 提出しますか？\n（何回でも 出しなおせます）`)) return;
+  const b = $('submitBtn'); b.disabled = true; say('提出して います…');
+  try {
+    updateFills();
+    const png = await thumbnail();
+    const r = await call('submitWork', { kadai: KADAI, name, fig: docs[cur].name, json: JSON.stringify({ version: 2, ...state }), png });
+    say(`提出しました（${r.at}）。`);
+  } catch (e) { say('提出できませんでした：' + errMsg(e)); }
+  b.disabled = false;
+};
+// ===== 先生：提出の一覧 =====
+async function openTview() {
+  $('tview').hidden = false;
+  try {
+    const ks = await call('listKadai'), sel = $('kadaiSel'), keep = sel.value;
+    sel.replaceChildren(...ks.map(k => { const o = document.createElement('option'); o.value = o.textContent = k; return o; }));
+    if (ks.includes(keep)) sel.value = keep;
+    loadCards();
+  } catch (e) { $('tviewNote').textContent = '読めませんでした：' + errMsg(e); }
+}
+let SUBMITS = [];
+async function loadCards() {
+  const k = $('kadaiSel').value, box = $('cards');
+  box.replaceChildren();
+  if (!k) { $('tviewNote').textContent = '右の 欄で 課題を 作り、「児童用の URLを コピー」で 児童に 配ります。'; return; }
+  $('tviewNote').textContent = '読み込み中…';
+  try { SUBMITS = await call('listSubmissions', k); } catch (e) { $('tviewNote').textContent = '読めませんでした：' + errMsg(e); return; }
+  drawCards();
+}
+function drawCards() {
+  const box = $('cards'), old = $('showOld').checked, count = {}, latest = {};
+  for (const s of SUBMITS) { count[s.who] = (count[s.who] || 0) + 1; latest[s.who] = s.id; }  // 下ほど新しい
+  const list = SUBMITS.map((s, i) => ({ ...s, n: SUBMITS.slice(0, i + 1).filter(x => x.who === s.who).length, last: latest[s.who] === s.id }))
+    .filter(s => old || s.last).sort((a, b) => a.name.localeCompare(b.name, 'ja', { numeric: true }) || a.n - b.n);
+  $('tviewNote').textContent = `${Object.keys(count).length}人が 提出（全${SUBMITS.length}回）。カードを おすと エディタの 新しい タブで 開きます。`;
+  box.replaceChildren();
+  for (const s of list) {
+    const c = document.createElement('button'); c.className = 'card' + (s.last ? '' : ' old');
+    if (s.png) { const im = document.createElement('img'); im.src = s.png; im.alt = ''; c.appendChild(im); }
+    const b = document.createElement('b'); b.textContent = s.name;
+    const sm = document.createElement('small'); sm.textContent = `${s.at}　${count[s.who] > 1 ? s.n + '回目' : ''}`;
+    c.append(b, sm);
+    c.onclick = async () => {
+      try {
+        const d = parseData(JSON.parse(await call('loadSubmission', s.id)));
+        if (!d) throw Error('データが こわれています');
+        addDoc(d, `${s.name}（${$('kadaiSel').value}）`); $('tview').hidden = true; say('提出を 新しい タブで 開きました。');
+      } catch (e) { say('開けませんでした：' + errMsg(e)); }
+    };
+    box.appendChild(c);
+  }
+}
+$('tviewOpen').onclick = openTview;
+$('tviewClose').onclick = () => { $('tview').hidden = true; };
+$('tviewReload').onclick = loadCards;
+$('kadaiSel').onchange = loadCards;
+$('showOld').onchange = drawCards;
+$('kadaiAdd').onclick = async () => {
+  const v = $('kadaiNew').value.trim(); if (!v) return;
+  try { const k = await call('addKadai', v); $('kadaiNew').value = ''; await openTview(); $('kadaiSel').value = k; loadCards(); } catch (e) { $('tviewNote').textContent = '作れませんでした：' + errMsg(e); }
+};
+$('kadaiUrl').onclick = async () => {
+  const k = $('kadaiSel').value; if (!k) return;
+  const u = `${who.url}?kadai=${encodeURIComponent(k)}`;
+  try { await navigator.clipboard.writeText(u); $('tviewNote').textContent = 'コピーしました：' + u; }
+  catch (e) { prompt('この URLを 児童に 配ります', u); }
+};
+
 const errMsg = e => (e && e.message || String(e)).replace(/^Exception: /, '');
 $('shelfSave').onclick = async () => {
   const d = docs[cur], name = prompt('棚に 保存する 名前', d.name);
@@ -1097,7 +1236,7 @@ function parseData(d) {
   const fills = (d.fills || []).filter(f => /^#[0-9a-f]{6}$/i.test(f.color) && Number.isFinite(f.u) && Number.isFinite(f.v));
   const nextId = Math.max(d.nextId || 1, ...circles.concat(lines).map(c => c.id + 1));
   const int = (v, [lo, hi], def) => Number.isInteger(v) && v >= lo && v <= hi ? v : def;
-  return { cols: int(d.cols, COLS_LIM, 20), rows: int(d.rows, ROWS_LIM, 16), sub: SUBS.includes(d.sub) ? d.sub : 1, circles, lines, hidden, fills, nextId };
+  return { cols: int(d.cols, COLS_LIM, 20), rows: int(d.rows, ROWS_LIM, 16), sub: SUBMITS.includes(d.sub) ? d.sub : 1, circles, lines, hidden, fills, nextId };
 }
 // 旧版：けした弧は {circleId,start,end,dir}、塗りは画像（data URL）とクリック位置（旧座標）
 async function fromV1(d) {
