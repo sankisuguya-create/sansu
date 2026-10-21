@@ -91,6 +91,13 @@ header ruby rt{font-size:.5em}
 .tabs button.tabAct{border-radius:10px;color:var(--muted)}
 .tabs .x{margin-left:8px;color:var(--danger);font-weight:700}
 @media print{.tabs{display:none!important}}
+/* 共有の棚（GAS版だけ） */
+.shelfPop{left:50%;top:50%;transform:translate(-50%,-50%);width:520px}
+.shelfList{display:flex;flex-direction:column;gap:6px;max-height:55dvh;overflow:auto}
+.shelfItem{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.shelfItem b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shelfItem small{color:var(--muted);font-size:13px}
+.shelfItem button{min-height:44px}
 
 /* 右パネル：いまのモードの設定だけ */
 .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:12px}
@@ -251,6 +258,10 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
         <button id="importJson">データを読み込む</button>
       </div>
       <input id="jsonFile" type="file" accept=".json,application/json" hidden>
+      <div class="row" id="shelfRow" style="margin-top:6px" hidden>
+        <button id="shelfSave">先生の 棚に 保存</button>
+        <button id="shelfOpen">棚から 開く</button>
+      </div>
       <p class="note" style="margin-top:6px">作図はこのブラウザに自動保存されます。別の端末へ移すときは書き出したファイルを使います。</p>
     </details>
   </aside>
@@ -274,6 +285,12 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     <button data-tone="dark" aria-pressed="false"><svg viewBox="0 0 26 26" style="stroke:#4b5563;stroke-width:2"><path d="M3 3h20v20H3zM13 3v20M3 13h20"/></svg>こい</button>
   </div>
   <button id="gridClose" class="wide">とじる</button>
+</div>
+
+<div id="shelfPop" class="gridPop shelfPop" role="dialog" aria-label="先生の 棚" hidden>
+  <h2>先生の 棚（先生どうしで 共有）</h2>
+  <div id="shelfList" class="shelfList"></div>
+  <button id="shelfClose" class="wide">とじる</button>
 </div>
 
 <script>
@@ -341,7 +358,7 @@ const snap = () => JSON.stringify(state);
 function syncDoc() { const d = docs[cur]; if (d) { d.state = state; d.undo = undoStack; d.redo = redoStack; } }
 function save() {
   syncDoc();
-  try { localStorage.setItem(DOCS_STORE, JSON.stringify({ version: 3, cur, docs: docs.map(d => ({ name: d.name, state: { version: 2, ...d.state } })) })); } catch (e) {}
+  try { localStorage.setItem(DOCS_STORE, JSON.stringify({ version: 3, cur, docs: docs.map(d => ({ name: d.name, sharedId: d.sharedId || '', state: { version: 2, ...d.state } })) })); } catch (e) {}
 }
 function saveUI() { try { localStorage.setItem(UI_STORE, JSON.stringify(ui)); } catch (e) {} }
 function finish(before) {
@@ -1004,6 +1021,7 @@ document.addEventListener('keydown', e => {
   const a = document.activeElement, typing = a && (/^(input|textarea|select)$/i.test(a.tagName) || a.isContentEditable);
   if (typing) return;
   if (e.key === 'Escape' && !$('gridPop').hidden) { openGridPop(false); return; }
+  if (e.key === 'Escape' && !$('shelfPop').hidden) { $('shelfPop').hidden = true; return; }
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
@@ -1012,6 +1030,62 @@ document.addEventListener('keydown', e => {
   const dir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
   if (dir) { e.preventDefault(); nudge(...dir); }
 });
+
+// ===== 先生の棚（GAS版だけ。google.script.run があるときに出す） =====
+const gas = window.google && google.script && google.script.run;
+const SHELF_API = 1;  // Code.gs の API_VER と合わせる
+function call(fn, ...args) {
+  return new Promise((res, rej) => gas.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+}
+function initShelf() {
+  if (!gas) return;
+  $('shelfRow').hidden = false;
+  call('apiVersion').then(v => { if (v !== SHELF_API) say(`Code.gs と index.html の 版が ちがいます（${v}／${SHELF_API}）。同じ コミットから 両方 貼り直してください。`); }).catch(() => {});
+}
+const errMsg = e => (e && e.message || String(e)).replace(/^Exception: /, '');
+$('shelfSave').onclick = async () => {
+  const d = docs[cur], name = prompt('棚に 保存する 名前', d.name);
+  if (!name || !name.trim()) return;
+  try {
+    const r = await call('saveShared', { id: d.sharedId || '', name: name.trim().slice(0, 40), json: JSON.stringify({ version: 2, ...state }) });
+    d.sharedId = r.id; save();
+    say(r.updated ? '棚の 図を 上書きしました。' : '棚に 保存しました。ほかの 先生も 開けます。');
+  } catch (e) { say('保存できませんでした：' + errMsg(e)); }
+};
+async function showShelf() {
+  const list = $('shelfList'); list.textContent = '読み込み中…';
+  $('shelfPop').hidden = false;
+  try {
+    const items = await call('listShared');
+    list.replaceChildren();
+    if (!items.length) { list.textContent = 'まだ 図が ありません。'; return; }
+    for (const it of items) {
+      const row = document.createElement('div'); row.className = 'shelfItem';
+      const info = document.createElement('div');
+      const b = document.createElement('b'); b.textContent = it.name;
+      const sm = document.createElement('small'); sm.textContent = `${it.author}・${it.updated}`;
+      info.append(b, sm);
+      const open = document.createElement('button'); open.textContent = '開く';
+      open.onclick = async () => {
+        try {
+          const d = parseData(JSON.parse(await call('loadShared', it.id)));
+          if (!d) throw Error('データが こわれています');
+          $('shelfPop').hidden = true; addDoc(d, it.name);
+          if (it.mine) { docs[cur].sharedId = it.id; save(); }  // 自分の図なら、次の保存で上書きする
+          say('棚の 図を あたらしい タブで 開きました。');
+        } catch (e) { say('開けませんでした：' + errMsg(e)); }
+      };
+      const del = document.createElement('button'); del.textContent = 'けす'; del.className = 'danger'; del.hidden = !it.mine;
+      del.onclick = async () => {
+        if (!confirm(`棚から「${it.name}」を けしますか？（もどせません）`)) return;
+        try { await call('deleteShared', it.id); showShelf(); } catch (e) { say('けせませんでした：' + errMsg(e)); }
+      };
+      row.append(info, open, del); list.appendChild(row);
+    }
+  } catch (e) { list.textContent = '棚を 読めませんでした：' + errMsg(e); }
+}
+$('shelfOpen').onclick = showShelf;
+$('shelfClose').onclick = () => { $('shelfPop').hidden = true; };
 
 // ===== 読み込み（v2・旧版v1） =====
 function parseData(d) {
@@ -1064,7 +1138,7 @@ async function load() {
   try {
     const all = JSON.parse(localStorage.getItem(DOCS_STORE));
     if (all && all.version === 3 && Array.isArray(all.docs)) {
-      docs = all.docs.map((d, i) => ({ name: String(d.name || `図${i + 1}`), state: parseData(d.state), undo: [], redo: [] })).filter(d => d.state);
+      docs = all.docs.map((d, i) => ({ name: String(d.name || `図${i + 1}`), sharedId: String(d.sharedId || ''), state: parseData(d.state), undo: [], redo: [] })).filter(d => d.state);
       if (docs.length) { cur = clamp(all.cur | 0, 0, docs.length - 1); state = docs[cur].state; return; }
     }
   } catch (e) {}
@@ -1081,6 +1155,7 @@ async function load() {
 buildStatic();
 load().then(() => {
   if (!docs.length) { docs = [{ name: '図1', state, undo: [], redo: [] }]; cur = 0; save(); }  // 以前の1枚だけの保存は 図1 に
+  initShelf();
   render(); renderTabs(); showHint();
 });
 window.__editor = { get state() { return state; }, getWalls, render, updateFills };  // 動作確認用
