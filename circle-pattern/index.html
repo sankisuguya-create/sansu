@@ -78,6 +78,7 @@ header ruby rt{font-size:.5em}
 #board .centerSel{fill:#1684c7}
 #board .dot{fill:#fff;stroke:#1684c7;stroke-width:1.6}
 #board .ghostAdd{stroke:#1684c7;stroke-width:2.4;fill:#1684c711;stroke-dasharray:7 5}
+#board .ghostLine{stroke:#1684c7;stroke-width:2.4;stroke-dasharray:7 5;stroke-linecap:round}
 #board .radiusLine{stroke:#1684c7;stroke-width:1.6;stroke-dasharray:4 4}
 #board .label{font:700 16px var(--font);fill:#0b4f86;stroke:#fff;stroke-width:4px;paint-order:stroke}
 #board .hl-hide{stroke:#e5484d;stroke-width:9;stroke-opacity:.55;fill:none;stroke-linecap:round}
@@ -155,6 +156,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
   <nav class="modes" aria-label="モード">
     <button class="modeBtn" data-mode="add" aria-pressed="true"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11"/><circle cx="15" cy="15" r="1.6" fill="currentColor"/><path d="M15 15h11"/></svg><span>円を<br>かく</span></button>
     <button class="modeBtn" data-mode="move" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M15 3v24M3 15h24M11 7l4-4 4 4M11 23l4 4 4-4M7 11l-4 4 4 4M23 11l4 4-4 4"/></svg><span>うごかす</span></button>
+    <button class="modeBtn" data-mode="line" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M5 24 25 6"/><circle cx="5" cy="24" r="1.8" fill="currentColor"/><circle cx="25" cy="6" r="1.8" fill="currentColor"/></svg><span><ruby>直線<rt>ちょくせん</rt></ruby>を<br>ひく</span></button>
     <button class="modeBtn" data-mode="arc" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M4 21A11 11 0 0 1 15 7"/><path d="M15 7a11 11 0 0 1 11 14" stroke-dasharray="2.5 3.5"/></svg><span>線を<br>けす</span></button>
     <button class="modeBtn" data-mode="fill" aria-pressed="false"><svg viewBox="0 0 30 30"><circle cx="11" cy="15" r="8"/><circle cx="19" cy="15" r="8"/><path d="M15 8.1a8 8 0 0 1 0 13.8 8 8 0 0 1 0-13.8z" fill="currentColor" opacity=".55"/></svg><span>色を<br>ぬる</span></button>
   </nav>
@@ -187,11 +189,15 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
       <p class="note">ます目を おしたまま ひっぱると、<ruby>半径<rt>はんけい</rt></ruby>を その場で きめられます。</p>
     </section>
 
+    <section class="ctx" data-mode="line" hidden>
+      <p class="note">ます目の 点を おしたまま、つなぎたい 点まで ひっぱって はなします。</p>
+    </section>
+
     <section class="ctx" data-mode="move" hidden>
-      <p id="moveNone" class="note">うごかしたい 円を おして えらびます。</p>
+      <p id="moveNone" class="note">うごかしたい 円や <ruby>直線<rt>ちょくせん</rt></ruby>を おして えらびます。</p>
       <div id="moveSel" class="ctx">
         <h2 id="selTitle">えらんだ 円</h2>
-        <div class="stepper">
+        <div class="stepper" id="selRbox">
           <button id="selRminus" aria-label="半径を 小さく">−</button>
           <output id="selR"></output>
           <button id="selRplus" aria-label="半径を 大きく">＋</button>
@@ -207,7 +213,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     </section>
 
     <section class="ctx" data-mode="arc" hidden>
-      <p class="note">○ で 区切られた 線を 1本ずつ けせます。けした 線は 点線で のこるので、おすと もどります。</p>
+      <p class="note">○ で 区切られた 線を 1本ずつ けせます（円も <ruby>直線<rt>ちょくせん</rt></ruby>も）。けした 線は 点線で のこるので、おすと もどります。</p>
       <h2>けした 線の 見せ方（ぜんぶ）</h2>
       <div class="segBtns" id="erasedStyle">
         <button data-style="hide" aria-pressed="true">かくす</button>
@@ -283,7 +289,8 @@ const COLORS = [
 const RB = (k, r) => `<ruby>${k}<rt>${r}</rt></ruby>`;
 const HINT = {
   add: `中心に したい 点を おします。おしたまま ひっぱると ${RB('半径', 'はんけい')}が かわります。`,
-  move: '円を おして ひっぱると うごきます。右の ボタンでも うごかせます。',
+  move: '円や 直線を おして ひっぱると うごきます。右の ボタンでも うごかせます。',
+  line: `ます目の 点を おしたまま、つなぎたい 点まで ひっぱります。`,
   arc: 'けしたい 線を おすと きえます。点線を おすと もどります。なぞると まとめて けせます。',
   fill: '色を えらんで、線で かこまれた ところを おします。',
 };
@@ -291,11 +298,12 @@ const HINT = {
 // ===== 状態 =====
 // cols,rows: ます目の数　sub: 1ますを いくつに 分けるか（1/2/5）
 // circles: {id,x,y,r}（ます目単位。1/sub きざみ）
-// hidden:  {円id: [[開始角,終了角],...]}  角度は0〜2πで昇順・重なりなし。けした線の範囲
+// lines:   {id,x1,y1,x2,y2}（ます目単位。円と同じ id の通し番号）
+// hidden:  {id: [[開始,終了],...]}  けした線の範囲。円は角度0〜2π、直線は端1→端2を0〜1で表す。昇順・重なりなし
 // fills:   {ref,u,v,color,open}  塗った点。ref=その点を囲む最小の円（円に乗って一緒に動く）。
 //          u,v は ref の中心からの位置を半径で割った値（ref=null なら ます目座標）。
 //          open=塗った時点で外枠に接していたか（false の塗りが枠に届いたら「もれた」とみなして外す）
-let state = { cols: 20, rows: 16, sub: 1, circles: [], hidden: {}, fills: [], nextId: 1 };
+let state = { cols: 20, rows: 16, sub: 1, circles: [], lines: [], hidden: {}, fills: [], nextId: 1 };
 let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal' };
 let selectedId = null, undoStack = [], redoStack = [];
 let gesture = null, hover = null;
@@ -306,6 +314,9 @@ const drawLayer = $('drawLayer'), ghostLayer = $('ghostLayer'), overlay = $('ove
 const fillCanvas = $('fillLayer');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const cById = id => state.circles.find(c => c.id === id);
+const sById = id => cById(id) || state.lines.find(l => l.id === id);  // 円か直線
+const isLine = s => s.x1 !== undefined;
+const shapes = () => state.circles.concat(state.lines);
 const toPx = (gx, gy) => [PAD + gx * STEP, PAD + gy * STEP];
 const toGrid = (x, y) => [(x - PAD) / STEP, (y - PAD) / STEP];
 const inGrid = (gx, gy) => gx >= -1e-9 && gx <= COLS + 1e-9 && gy >= -1e-9 && gy <= ROWS + 1e-9;
@@ -326,7 +337,7 @@ function finish(before) {
 function commit(fn) { const before = snap(); fn(); return finish(before); }
 function restore(json) {
   state = JSON.parse(json);
-  if (!cById(selectedId)) selectedId = null;
+  if (!sById(selectedId)) selectedId = null;
   gesture = null; save(); render();
 }
 function undo() {
@@ -370,6 +381,12 @@ function subArc(list, seg) {
 const covers = (list, t) => list.some(([s, e]) => t >= s - 1e-9 && t <= e + 1e-9);
 function visibleArcs(c) {
   const h = state.hidden[c.id] || [];
+  if (isLine(c)) {  // 直線は 0〜1 で、端をまたがない
+    const out = []; let cur = 0;
+    for (const [s, e] of h) { if (s - cur > AEPS) out.push([cur, s]); cur = Math.max(cur, e); }
+    if (1 - cur > AEPS) out.push([cur, 1]);
+    return out;
+  }
   if (!h.length) return [[0, TAU]];
   const out = []; let cur = 0;
   for (const [s, e] of h) { if (s - cur > AEPS) out.push([cur, s]); cur = Math.max(cur, e); }
@@ -386,14 +403,43 @@ function intersections(a, b) {
   const xm = a.x + aa * dx / d, ym = a.y + aa * dy / d, rx = -dy * h / d, ry = dx * h / d;
   return h < 1e-9 ? [{ x: xm, y: ym }] : [{ x: xm + rx, y: ym + ry }, { x: xm - rx, y: ym - ry }];
 }
+function circleLineX(c, l) {
+  const dx = l.x2 - l.x1, dy = l.y2 - l.y1, fx = l.x1 - c.x, fy = l.y1 - c.y;
+  const A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - c.r * c.r, D = B * B - 4 * A * C;
+  if (D < -1e-9) return [];
+  const q = Math.sqrt(Math.max(0, D)), ts = q < 1e-9 ? [-B / (2 * A)] : [(-B - q) / (2 * A), (-B + q) / (2 * A)];
+  return ts.filter(t => t >= -1e-9 && t <= 1 + 1e-9).map(t => ({ x: l.x1 + t * dx, y: l.y1 + t * dy }));
+}
+function lineLineX(a, b) {
+  const rx = a.x2 - a.x1, ry = a.y2 - a.y1, sx = b.x2 - b.x1, sy = b.y2 - b.y1, den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-12) return [];  // 平行（重なりも交点なし）
+  const qx = b.x1 - a.x1, qy = b.y1 - a.y1, t = (qx * sy - qy * sx) / den, u = (qx * ry - qy * rx) / den;
+  return t >= -1e-9 && t <= 1 + 1e-9 && u >= -1e-9 && u <= 1 + 1e-9 ? [{ x: a.x1 + t * rx, y: a.y1 + t * ry }] : [];
+}
+// 円・直線のどの組み合わせでも交点を返す
+function crossings(a, b) {
+  const la = isLine(a), lb = isLine(b);
+  return la && lb ? lineLineX(a, b) : la ? circleLineX(b, a) : lb ? circleLineX(a, b) : intersections(a, b);
+}
+// 線の上の点 → その線の位置（円は角度、直線は0〜1）
+function paramOf(s, x, y) {
+  if (!isLine(s)) return norm(Math.atan2(y - s.y, x - s.x));
+  const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+  return clamp(((x - s.x1) * dx + (y - s.y1) * dy) / (dx * dx + dy * dy), 0, 1);
+}
 function cutAngles(c) {
   const t = [];
-  for (const o of state.circles) if (o.id !== c.id) for (const p of intersections(c, o)) t.push(norm(Math.atan2(p.y - c.y, p.x - c.x)));
+  for (const o of shapes()) if (o.id !== c.id) for (const p of crossings(c, o)) t.push(paramOf(c, p.x, p.y));
   t.sort((a, b) => a - b);
   return t.filter((v, i) => !i || v - t[i - 1] > 1e-5);
 }
-// 角度 t を含む「交点で区切られた線」
+// 位置 t を含む「交点で区切られた線」
 function segmentAt(c, t) {
+  if (isLine(c)) {
+    const cuts = [0, ...cutAngles(c).filter(v => v > 1e-5 && v < 1 - 1e-5), 1];
+    for (let i = 0; i < cuts.length - 1; i++) if (t <= cuts[i + 1]) return { a: cuts[i], b: cuts[i + 1] };
+    return { a: cuts[cuts.length - 2], b: 1 };
+  }
   const cuts = cutAngles(c);
   if (cuts.length < 2) return { a: 0, b: TAU, full: true };
   for (let i = 0; i < cuts.length - 1; i++) if (t >= cuts[i] && t < cuts[i + 1]) return { a: cuts[i], b: cuts[i + 1] };
@@ -411,6 +457,11 @@ function nearestLine(p, tol) {
     const [cx, cy] = toPx(c.x, c.y), d = Math.abs(Math.hypot(p.x - cx, p.y - cy) - c.r * STEP);
     if (d < bd) { bd = d; best = c; }
   }
+  for (const l of state.lines) {
+    const [gx, gy] = toGrid(p.x, p.y), t = paramOf(l, gx, gy);
+    const [qx, qy] = toPx(l.x1 + t * (l.x2 - l.x1), l.y1 + t * (l.y2 - l.y1)), d = Math.hypot(p.x - qx, p.y - qy);
+    if (d < bd) { bd = d; best = l; }
+  }
   return best;
 }
 function smallestContaining(gx, gy, circles = state.circles) {
@@ -418,7 +469,7 @@ function smallestContaining(gx, gy, circles = state.circles) {
   for (const c of circles) if (Math.hypot(gx - c.x, gy - c.y) < c.r - 1e-6 && (!best || c.r < best.r)) best = c;
   return best;
 }
-function angleOn(c, p) { const [cx, cy] = toPx(c.x, c.y); return norm(Math.atan2(p.y - cy, p.x - cx)); }
+function angleOn(c, p) { const [gx, gy] = toGrid(p.x, p.y); return paramOf(c, gx, gy); }
 
 // ===== 描画 =====
 function el(tag, attrs, parent) {
@@ -427,6 +478,10 @@ function el(tag, attrs, parent) {
   parent.appendChild(n); return n;
 }
 function arcShape(c, s, e, cls, parent) {
+  if (isLine(c)) {
+    const [x1, y1] = toPx(c.x1 + s * (c.x2 - c.x1), c.y1 + s * (c.y2 - c.y1)), [x2, y2] = toPx(c.x1 + e * (c.x2 - c.x1), c.y1 + e * (c.y2 - c.y1));
+    return el('line', { x1, y1, x2, y2, class: cls }, parent);
+  }
   const [cx, cy] = toPx(c.x, c.y), R = c.r * STEP;
   if (e - s >= TAU - AEPS) return el('circle', { cx, cy, r: R, class: cls }, parent);
   const x1 = cx + R * Math.cos(s), y1 = cy + R * Math.sin(s), x2 = cx + R * Math.cos(e), y2 = cy + R * Math.sin(e);
@@ -467,16 +522,16 @@ function buildStatic() {
 function renderDrawing() {
   drawLayer.replaceChildren(); ghostLayer.replaceChildren();
   const m = ui.mode, ghosts = m === 'arc' || m === 'move';
-  for (const c of state.circles) {
+  for (const c of shapes()) {
     const sel = m === 'move' && c.id === selectedId;
     for (const [s, e] of visibleArcs(c)) arcShape(c, s, e, 'circleLine' + (sel ? ' sel' : ''), drawLayer);
     if (ui.erased === 'red') for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'erasedRed', drawLayer);
     else if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
-    if (m === 'move') { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
+    if (m === 'move' && !isLine(c)) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
   }
   if (m === 'arc') {
-    const cs = state.circles;
-    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) for (const p of intersections(cs[i], cs[j])) {
+    const cs = shapes();
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) for (const p of crossings(cs[i], cs[j])) {
       const [x, y] = toPx(p.x, p.y); el('circle', { cx: x, cy: y, r: 3.5, class: 'dot' }, ghostLayer);
     }
   }
@@ -494,8 +549,15 @@ function renderOverlay() {
       t.textContent = `はんけい ${fmt(g.r)}`;
     }
   }
+  const lg = gesture && gesture.type === 'line' ? gesture : (ui.mode === 'line' && hover && hover.type === 'line' ? hover : null);
+  if (lg) {
+    const [x1, y1] = toPx(lg.x1, lg.y1), [x2, y2] = toPx(lg.x2, lg.y2);
+    if (x1 !== x2 || y1 !== y2) el('line', { x1, y1, x2, y2, class: 'ghostLine' }, overlay);
+    el('circle', { cx: x1, cy: y1, r: 4, class: 'centerSel' }, overlay);
+    if (x1 !== x2 || y1 !== y2) el('circle', { cx: x2, cy: y2, r: 4, class: 'centerSel' }, overlay);
+  }
   if (ui.mode === 'arc' && !gesture && hover && hover.type === 'arc') {
-    const c = cById(hover.id); if (c) { const { a, b, full } = hover.seg; arcShape(c, a, full ? a + TAU : b < a ? b + TAU : b, hover.action === 'hide' ? 'hl-hide' : 'hl-show', overlay); }
+    const c = sById(hover.id); if (c) { const { a, b, full } = hover.seg; arcShape(c, a, full ? a + TAU : b < a ? b + TAU : b, hover.action === 'hide' ? 'hl-hide' : 'hl-show', overlay); }
   }
 }
 function renderPanel() {
@@ -503,9 +565,15 @@ function renderPanel() {
   document.querySelectorAll('.ctx[data-mode]').forEach(s => { s.hidden = s.dataset.mode !== ui.mode; });
   $('addR').innerHTML = `${fmt(ui.radius)}<small>ます</small>`;
   $('addRminus').disabled = ui.radius <= R_MIN; $('addRplus').disabled = ui.radius >= R_MAX;
-  const sel = ui.mode === 'move' ? cById(selectedId) : null;
+  const sel = ui.mode === 'move' ? sById(selectedId) : null;
   $('moveNone').hidden = !!sel; $('moveSel').hidden = !sel;
-  if (sel) {
+  if (sel && isLine(sel)) {
+    $('selTitle').innerHTML = `えらんだ ${RB('直線', 'ちょくせん')}`; $('selRbox').hidden = true; $('deleteCircle').innerHTML = `この ${RB('直線', 'ちょくせん')}を けす`;
+    document.querySelectorAll('.pad button').forEach(b => {
+      const dx = b.dataset.dx * U, dy = b.dataset.dy * U; b.disabled = [sel.x1 + dx, sel.x2 + dx].some(v => v < 0 || v > COLS) || [sel.y1 + dy, sel.y2 + dy].some(v => v < 0 || v > ROWS);
+    });
+  } else if (sel) {
+    $('selRbox').hidden = false; $('deleteCircle').textContent = 'この 円を けす';
     $('selTitle').innerHTML = `えらんだ 円の ${RB('半径', 'はんけい')}`;
     $('selR').innerHTML = `${fmt(sel.r)}<small>ます</small>`;
     $('selRminus').disabled = sel.r <= R_MIN; $('selRplus').disabled = sel.r >= R_MAX;
@@ -518,7 +586,7 @@ function renderPanel() {
   $('restoreArcs').disabled = !Object.keys(state.hidden).length;
   $('clearFills').disabled = !state.fills.length;
   $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length;
-  $('clearAll').disabled = !state.circles.length && !state.fills.length;
+  $('clearAll').disabled = !state.circles.length && !state.lines.length && !state.fills.length;
   $('gridToggle').setAttribute('aria-pressed', ui.grid); svg.classList.toggle('noGrid', !ui.grid); svg.dataset.tone = ui.tone;
   $('colsOut').textContent = COLS; $('rowsOut').textContent = ROWS;
   $('colsMinus').disabled = COLS <= COLS_LIM[0]; $('colsPlus').disabled = COLS >= COLS_LIM[1];
@@ -543,7 +611,7 @@ function render() {
 
 // ===== 塗り：線を画像にして、塗った点から広がる範囲を求める =====
 let wallCache = { key: null, walls: null }, fillCache = { key: null, labels: null }, stack = null, wallCanvas = null, fillImg = null, labelBuf = null;
-const geomKey = () => JSON.stringify([state.circles, state.hidden]);
+const geomKey = () => JSON.stringify([state.circles, state.lines, state.hidden]);
 function getWalls() {
   const key = geomKey();
   if (wallCache.key === key) return wallCache.walls;
@@ -556,6 +624,9 @@ function getWalls() {
   for (const c of state.circles) {
     const [cx, cy] = toPx(c.x, c.y);
     for (const [s, e] of visibleArcs(c)) { ctx.beginPath(); ctx.arc(cx, cy, c.r * STEP, s, e); ctx.stroke(); }
+  }
+  for (const l of state.lines) for (const [s, e] of visibleArcs(l)) {
+    ctx.beginPath(); ctx.moveTo(...toPx(l.x1 + s * (l.x2 - l.x1), l.y1 + s * (l.y2 - l.y1))); ctx.lineTo(...toPx(l.x1 + e * (l.x2 - l.x1), l.y1 + e * (l.y2 - l.y1))); ctx.stroke();
   }
   ctx.restore();
   const px = new Uint32Array(ctx.getImageData(0, 0, NW, NH).data.buffer), walls = new Uint8Array(N);
@@ -670,6 +741,14 @@ function addCircle(x, y, r) {
   selectedId = id; renderPanel();
   say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}ます）`);
 }
+function addLine(g) {
+  const { x1, y1, x2, y2 } = g;
+  if (x1 === x2 && y1 === y2) { say('おしたまま、つなぎたい 点まで ひっぱってください。'); return; }
+  if (state.lines.some(l => (l.x1 === x1 && l.y1 === y1 && l.x2 === x2 && l.y2 === y2) || (l.x1 === x2 && l.y1 === y2 && l.x2 === x1 && l.y2 === y1))) { say(`同じ ${RB('直線', 'ちょくせん')}が もう あります。`); return; }
+  const id = state.nextId;
+  commit(() => { state.lines.push({ id, x1, y1, x2, y2 }); state.nextId++; });
+  selectedId = id; say(`${RB('直線', 'ちょくせん')}を ひきました。`);
+}
 svg.addEventListener('contextmenu', e => e.preventDefault());
 svg.addEventListener('pointerdown', e => {
   if (gesture || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -679,11 +758,15 @@ svg.addEventListener('pointerdown', e => {
     const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (!inGrid(x, y)) { say('ます目の 中を おしてください。'); return; }
     gesture = { type: 'add', x, y, r: ui.radius, dragged: false, pid: e.pointerId };
+  } else if (ui.mode === 'line') {
+    const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
+    if (!inGrid(x, y)) { say('ます目の 中を おしてください。'); return; }
+    gesture = { type: 'line', x1: x, y1: y, x2: x, y2: y, pid: e.pointerId };
   } else if (ui.mode === 'move') {
     const [gx, gy] = toGrid(p.x, p.y);
     const c = nearestLine(p, tolOf(e)) || smallestContaining(gx, gy);
     selectedId = c ? c.id : null;
-    if (c) gesture = { type: 'move', id: c.id, start: p, orig: { x: c.x, y: c.y }, before: snap(), moved: false, pid: e.pointerId };
+    if (c) gesture = { type: 'move', id: c.id, start: p, orig: { ...c }, before: snap(), moved: false, pid: e.pointerId };
   } else if (ui.mode === 'arc') {
     const c = nearestLine(p, tolOf(e));
     if (!c) { say('円の 線の 上を おしてください。'); return; }
@@ -710,11 +793,21 @@ svg.addEventListener('pointermove', e => {
     if (dpx * scale() > DRAG_PX) gesture.dragged = true;
     if (gesture.dragged) gesture.r = clamp(snapV(dpx / STEP), R_MIN, R_MAX);
     renderOverlay();
+  } else if (gesture.type === 'line') {
+    const [gx, gy] = toGrid(p.x, p.y);
+    gesture.x2 = clamp(snapV(gx), 0, COLS); gesture.y2 = clamp(snapV(gy), 0, ROWS);
+    renderOverlay();
   } else if (gesture.type === 'move') {
     const dx = (p.x - gesture.start.x), dy = (p.y - gesture.start.y);
     if (!gesture.moved && Math.hypot(dx, dy) * scale() > DRAG_PX) gesture.moved = true;
     if (!gesture.moved) return;
-    const c = cById(gesture.id); if (!c) return;
+    const c = sById(gesture.id); if (!c) return;
+    if (isLine(c)) {
+      const o = gesture.orig;
+      const mx = clamp(snapV(dx / STEP), -Math.min(o.x1, o.x2), COLS - Math.max(o.x1, o.x2)), my = clamp(snapV(dy / STEP), -Math.min(o.y1, o.y2), ROWS - Math.max(o.y1, o.y2));
+      if (o.x1 + mx !== c.x1 || o.y1 + my !== c.y1) { Object.assign(c, { x1: o.x1 + mx, y1: o.y1 + my, x2: o.x2 + mx, y2: o.y2 + my }); renderDrawing(); renderPanel(); }
+      return;
+    }
     const nx = clamp(snapV(gesture.orig.x + dx / STEP), 0, COLS), ny = clamp(snapV(gesture.orig.y + dy / STEP), 0, ROWS);
     if (nx !== c.x || ny !== c.y) { c.x = nx; c.y = ny; renderDrawing(); renderPanel(); }
   } else if (gesture.type === 'arc') {
@@ -732,8 +825,10 @@ function endGesture(e, cancel) {
   if (g.type === 'add') {
     if (g.dragged) { ui.radius = g.r; saveUI(); }
     addCircle(g.x, g.y, g.r);
+  } else if (g.type === 'line') {
+    addLine(g);
   } else if (g.type === 'move') {
-    if (finish(g.before)) say('円を うごかしました。');
+    if (finish(g.before)) say(sById(g.id) && isLine(sById(g.id)) ? `${RB('直線', 'ちょくせん')}を うごかしました。` : '円を うごかしました。');
   } else if (g.type === 'arc') {
     if (finish(g.before)) say(g.action === 'hide' ? '線を けしました。点線を おすと もどります。' : '線を もどしました。');
   }
@@ -747,6 +842,9 @@ function updateHover(e, p) {
   if (ui.mode === 'add') {
     const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (inGrid(x, y)) h = { type: 'add', x, y, r: ui.radius };
+  } else if (ui.mode === 'line') {
+    const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
+    if (inGrid(x, y)) h = { type: 'line', x1: x, y1: y, x2: x, y2: y };
   } else if (ui.mode === 'arc') {
     const c = nearestLine(p, tolOf(e));
     if (c) { const t = angleOn(c, p); h = { type: 'arc', id: c.id, seg: segmentAt(c, t), action: covers(state.hidden[c.id] || [], t) ? 'show' : 'hide' }; }
@@ -761,18 +859,24 @@ function updateHover(e, p) {
 document.querySelectorAll('.modeBtn').forEach(b => b.onclick = () => setMode(b.dataset.mode));
 $('addRminus').onclick = () => { ui.radius = clamp(addU(ui.radius, -1), R_MIN, R_MAX); saveUI(); renderPanel(); };
 $('addRplus').onclick = () => { ui.radius = clamp(addU(ui.radius, 1), R_MIN, R_MAX); saveUI(); renderPanel(); };
-function editSelected(fn, msg) { const c = cById(selectedId); if (!c) return; if (commit(() => fn(c)) && msg) say(msg); }
-$('selRminus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, -1), R_MIN, R_MAX); });
-$('selRplus').onclick = () => editSelected(c => { c.r = clamp(addU(c.r, 1), R_MIN, R_MAX); });
-function nudge(dx, dy) { editSelected(c => { c.x = clamp(addU(c.x, dx), 0, COLS); c.y = clamp(addU(c.y, dy), 0, ROWS); }); }
+function editSelected(fn, msg) { const c = sById(selectedId); if (!c) return; if (commit(() => fn(c)) && msg) say(msg); }
+$('selRminus').onclick = () => editSelected(c => { if (isLine(c)) return; c.r = clamp(addU(c.r, -1), R_MIN, R_MAX); });
+$('selRplus').onclick = () => editSelected(c => { if (isLine(c)) return; c.r = clamp(addU(c.r, 1), R_MIN, R_MAX); });
+function nudge(dx, dy) {
+  editSelected(c => {
+    if (!isLine(c)) { c.x = clamp(addU(c.x, dx), 0, COLS); c.y = clamp(addU(c.y, dy), 0, ROWS); return; }
+    const n = { x1: addU(c.x1, dx), y1: addU(c.y1, dy), x2: addU(c.x2, dx), y2: addU(c.y2, dy) };
+    if ([n.x1, n.x2].every(v => v >= 0 && v <= COLS) && [n.y1, n.y2].every(v => v >= 0 && v <= ROWS)) Object.assign(c, n);
+  });
+}
 document.querySelectorAll('.pad button').forEach(b => b.onclick = () => nudge(+b.dataset.dx, +b.dataset.dy));
 function deleteSelected() {
-  const id = selectedId; if (!cById(id)) return;
+  const id = selectedId, s = sById(id); if (!s) return;
   commit(() => {
-    state.circles = state.circles.filter(c => c.id !== id); delete state.hidden[id];
+    state.circles = state.circles.filter(c => c.id !== id); state.lines = state.lines.filter(l => l.id !== id); delete state.hidden[id];
     state.fills = state.fills.filter(f => f.ref !== id);
   });
-  selectedId = null; renderPanel(); say('円を けしました。（「もどす」で もとに もどせます）');
+  selectedId = null; renderPanel(); say(`${isLine(s) ? RB('直線', 'ちょくせん') : '円'}を けしました。（「もどす」で もとに もどせます）`);
 }
 $('deleteCircle').onclick = deleteSelected;
 document.querySelectorAll('#erasedStyle button').forEach(b => b.onclick = () => { ui.erased = b.dataset.style; render(); });
@@ -818,8 +922,8 @@ $('fullscreen').onclick = () => {
 const fsSync = () => { $('fullscreen').setAttribute('aria-pressed', !!fsNow()); if (!$('gridPop').hidden) openGridPop(true); };
 document.addEventListener('fullscreenchange', fsSync); document.addEventListener('webkitfullscreenchange', fsSync);
 $('clearAll').onclick = () => {
-  if (!confirm('円・けした線・色を ぜんぶ けしますか？\n（「もどす」で もとに もどせます）')) return;
-  commit(() => { state.circles = []; state.hidden = {}; state.fills = []; });
+  if (!confirm('円・直線・けした線・色を ぜんぶ けしますか？\n（「もどす」で もとに もどせます）')) return;
+  commit(() => { state.circles = []; state.lines = []; state.hidden = {}; state.fills = []; });
   selectedId = null; renderPanel(); say('ぜんぶ けしました。（「もどす」で もとに もどせます）');
 };
 for (const [id, k] of [['tx', 'x'], ['ty', 'y'], ['tr', 'r']]) {
@@ -852,7 +956,7 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
-  if (ui.mode !== 'move' || !cById(selectedId)) return;
+  if (ui.mode !== 'move' || !sById(selectedId)) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
   const dir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
   if (dir) { e.preventDefault(); nudge(...dir); }
@@ -862,12 +966,13 @@ document.addEventListener('keydown', e => {
 function parseData(d) {
   if (!d || d.version !== 2 || !Array.isArray(d.circles)) return null;
   const circles = d.circles.filter(c => [c.id, c.x, c.y, c.r].every(Number.isFinite)).map(c => ({ id: c.id, x: c.x, y: c.y, r: c.r }));
-  const ids = new Set(circles.map(c => c.id)), hidden = {};
+  const lines = (d.lines || []).filter(l => [l.id, l.x1, l.y1, l.x2, l.y2].every(Number.isFinite) && (l.x1 !== l.x2 || l.y1 !== l.y2)).map(l => ({ id: l.id, x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2 }));
+  const ids = new Set(circles.concat(lines).map(c => c.id)), hidden = {};
   for (const [k, list] of Object.entries(d.hidden || {})) if (ids.has(+k) && Array.isArray(list)) { const m = mergeIv(list.filter(iv => iv.length === 2 && iv.every(Number.isFinite))); if (m.length) hidden[k] = m; }
   const fills = (d.fills || []).filter(f => /^#[0-9a-f]{6}$/i.test(f.color) && Number.isFinite(f.u) && Number.isFinite(f.v));
-  const nextId = Math.max(d.nextId || 1, ...circles.map(c => c.id + 1));
+  const nextId = Math.max(d.nextId || 1, ...circles.concat(lines).map(c => c.id + 1));
   const int = (v, [lo, hi], def) => Number.isInteger(v) && v >= lo && v <= hi ? v : def;
-  return { cols: int(d.cols, COLS_LIM, 20), rows: int(d.rows, ROWS_LIM, 16), sub: SUBS.includes(d.sub) ? d.sub : 1, circles, hidden, fills, nextId };
+  return { cols: int(d.cols, COLS_LIM, 20), rows: int(d.rows, ROWS_LIM, 16), sub: SUBS.includes(d.sub) ? d.sub : 1, circles, lines, hidden, fills, nextId };
 }
 // 旧版：けした弧は {circleId,start,end,dir}、塗りは画像（data URL）とクリック位置（旧座標）
 async function fromV1(d) {
@@ -886,7 +991,7 @@ async function fromV1(d) {
     const color = await pixelColor(f.data, f.x, f.y).catch(() => null); if (!color) continue;
     fills.push({ ...makeRef((f.x - 80) / 32, (f.y - 24) / 32, circles), color });  // 旧版の盤面: 原点(80,24)・1ます32
   }
-  return { cols: 20, rows: 16, sub: 1, circles, hidden, fills, nextId: Math.max(d.nextId || 1, ...circles.map(c => c.id + 1)) };
+  return { cols: 20, rows: 16, sub: 1, circles, lines: [], hidden, fills, nextId: Math.max(d.nextId || 1, ...circles.map(c => c.id + 1)) };
 }
 function pixelColor(url, x, y) {
   return new Promise((res, rej) => {
