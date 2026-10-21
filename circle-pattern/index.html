@@ -24,7 +24,7 @@ button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.2
 
 /* ヘッダー：全モード共通の操作 */
 header{flex:none;position:relative;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--line)}
-header h1{font-size:18px;margin:0 auto 0 4px;white-space:nowrap}
+header h1{font-size:18px;margin:0 4px;white-space:nowrap}
 header .sep{width:1px;align-self:stretch;background:var(--line);margin:4px 2px}
 #gridToggle[aria-pressed=true],#gridMenu[aria-expanded=true],#fullscreen[aria-pressed=true]{background:var(--accentSoft);border-color:#8cbfe6}
 .split{display:flex}
@@ -53,8 +53,9 @@ header ruby rt{font-size:.5em}
 
 /* 盤面 */
 .stage{display:flex;flex-direction:column;min-width:0;min-height:0;gap:6px}
-.status{flex:none;min-height:44px;display:flex;align-items:center;padding:2px 10px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:16px;line-height:1.9}
-.status.result{background:#fff8e1;border-color:#f0d58a}
+.status{flex:none;min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 14px;background:#1d2733e6;color:#fff;border-radius:10px;font-size:17px;line-height:1.9}
+.status rt{color:#dfe6ee}
+.status.result{background:#1d2733;color:#ffe08a;font-weight:700}
 .boardBox{flex:1;min-height:0;container-type:size;display:grid;place-items:center}
 .boardWrap{position:relative;width:min(100cqw,calc(100cqh * var(--w) / var(--h)));aspect-ratio:var(--w)/var(--h);background:#fff;border-radius:6px;box-shadow:0 1px 6px #0002;overflow:hidden}
 #fillLayer,#board{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -85,8 +86,8 @@ header ruby rt{font-size:.5em}
 #board .hl-show{stroke:#1684c7;stroke-width:9;stroke-opacity:.45;fill:none;stroke-linecap:round}
 
 /* 作図のタブ（盤面の上） */
-.tabs{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
-.tabs button{flex:none;min-height:44px;padding:4px 12px;border-radius:10px 10px 0 0;border-bottom-width:3px;white-space:nowrap;max-width:12em;overflow:hidden;text-overflow:ellipsis}
+.tabs{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;align-items:center}
+.tabs button{flex:none;min-height:44px;padding:4px 12px;border-radius:10px;border-bottom-width:3px;white-space:nowrap;max-width:12em;overflow:hidden;text-overflow:ellipsis}
 .tabs button.doc[aria-selected=true]{background:var(--accentSoft);border-color:#8cbfe6;border-bottom-color:var(--accent);font-weight:700}
 .tabs button.tabAct{border-radius:10px;color:var(--muted)}
 .tabs .x{margin-left:8px;color:var(--danger);font-weight:700}
@@ -168,6 +169,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
 <body>
 <header>
   <h1>円の模様エディタ</h1>
+  <div class="tabs" id="tabs" role="tablist" aria-label="作った 図"></div>
   <button id="undo" title="もどす（Ctrl+Z）"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg> <span class="lbl">もどす</span></button>
   <button id="redo" title="やりなおす（Ctrl+Y）"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg> <span class="lbl">やりなおす</span></button>
   <span class="sep"></span>
@@ -185,16 +187,14 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
 
 <div class="app">
   <nav class="modes" aria-label="モード">
+    <button class="modeBtn" data-mode="line" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M5 24 25 6"/><circle cx="5" cy="24" r="1.8" fill="currentColor"/><circle cx="25" cy="6" r="1.8" fill="currentColor"/></svg><span><ruby>直線<rt>ちょくせん</rt></ruby>を<br>ひく</span></button>
     <button class="modeBtn" data-mode="add" aria-pressed="true"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11"/><circle cx="15" cy="15" r="1.6" fill="currentColor"/><path d="M15 15h11"/></svg><span>円を<br>かく</span></button>
     <button class="modeBtn" data-mode="move" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M15 3v24M3 15h24M11 7l4-4 4 4M11 23l4 4 4-4M7 11l-4 4 4 4M23 11l4 4-4 4"/></svg><span>うごかす</span></button>
-    <button class="modeBtn" data-mode="line" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M5 24 25 6"/><circle cx="5" cy="24" r="1.8" fill="currentColor"/><circle cx="25" cy="6" r="1.8" fill="currentColor"/></svg><span><ruby>直線<rt>ちょくせん</rt></ruby>を<br>ひく</span></button>
     <button class="modeBtn" data-mode="arc" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M4 21A11 11 0 0 1 15 7"/><path d="M15 7a11 11 0 0 1 11 14" stroke-dasharray="2.5 3.5"/></svg><span>線を<br>けす</span></button>
     <button class="modeBtn" data-mode="fill" aria-pressed="false"><svg viewBox="0 0 30 30"><circle cx="11" cy="15" r="8"/><circle cx="19" cy="15" r="8"/><path d="M15 8.1a8 8 0 0 1 0 13.8 8 8 0 0 1 0-13.8z" fill="currentColor" opacity=".55"/></svg><span>色を<br>ぬる</span></button>
   </nav>
 
   <main class="stage">
-    <div class="tabs" id="tabs" role="tablist" aria-label="作った 図"></div>
-    <div id="status" class="status" aria-live="polite"></div>
     <div class="boardBox">
       <div class="boardWrap" id="boardWrap">
         <canvas id="fillLayer"></canvas>
@@ -208,6 +208,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
         </svg>
       </div>
     </div>
+    <div id="status" class="status" aria-live="polite"></div>
   </main>
 
   <aside class="panel">
@@ -344,6 +345,8 @@ const COLORS = [
   { name: 'きいろ', hex: '#f8d66d' }, { name: 'だいだい', hex: '#f4a261' },
   { name: 'もも', hex: '#f4acc4' }, { name: 'みずいろ', hex: '#8ecae6' },
   { name: 'きみどり', hex: '#a7d98b' }, { name: 'むらさき', hex: '#c7b5e6' },
+  { name: 'あか', hex: '#ee8080' }, { name: 'あお', hex: '#7ea3e0' },
+  { name: 'みどり', hex: '#5fbf8a' }, { name: 'ちゃいろ', hex: '#c9a074' },
 ];
 const RB = (k, r) => `<ruby>${k}<rt>${r}</rt></ruby>`;
 const HINT = {
@@ -944,9 +947,9 @@ function renderTabs() {
     };
     t.appendChild(b);
   });
-  const add = document.createElement('button'); add.className = 'tabAct'; add.textContent = '＋ あたらしい 図';
+  const add = document.createElement('button'); add.className = 'tabAct'; add.textContent = '＋'; add.title = 'あたらしい 図'; add.setAttribute('aria-label', 'あたらしい 図');
   add.onclick = () => { addDoc(blankState()); say('あたらしい 図を 作りました。'); };
-  const dup = document.createElement('button'); dup.className = 'tabAct'; dup.textContent = 'この 図を コピー';
+  const dup = document.createElement('button'); dup.className = 'tabAct'; dup.textContent = 'コピー'; dup.title = 'この 図を コピー';
   dup.onclick = () => { const n = docs[cur].name + 'のコピー'; addDoc(JSON.parse(snap()), n); say('図を コピーしました。'); };
   t.append(add, dup);
   t.querySelector('[aria-selected=true]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
