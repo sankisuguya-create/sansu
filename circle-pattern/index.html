@@ -259,7 +259,17 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     </section>
 
     <section class="ctx" data-mode="view" hidden>
-      <p class="note">見たい 円を おすと、その 円の 全体と 中心が 太く 出ます。ほかの 線と 色は うすく なります（けした 線も 円に もどして 見せます）。</p>
+      <h2>見る もの</h2>
+      <div class="segBtns" id="viewKind">
+        <button data-kind="one" aria-pressed="true">1つの 円</button>
+        <button data-kind="centers" aria-pressed="false">中心 ぜんぶ</button>
+      </div>
+      <h2>ほかの 線と 色</h2>
+      <div class="segBtns" id="viewOther">
+        <button data-other="dim" aria-pressed="true">うすく</button>
+        <button data-other="hide" aria-pressed="false">見せない</button>
+      </div>
+      <p class="note" id="viewNote"></p>
       <button id="viewClear" class="wide">もとの 見え方に もどす</button>
     </section>
 
@@ -375,7 +385,7 @@ const HINT = {
 //          u,v は ref の中心からの位置を半径で割った値（ref=null なら ます目座標）。
 //          open=塗った時点で外枠に接していたか（false の塗りが枠に届いたら「もれた」とみなして外す）
 let state = { cols: 20, rows: 16, sub: 1, circles: [], lines: [], hidden: {}, fills: [], nextId: 1 };
-let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal' };
+let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal', viewKind: 'one', viewOther: 'dim' };
 let selectedId = null, undoStack = [], redoStack = [];
 // タブ：作った図ごとに {name, state, undo, redo}。いま開いている図は state/undoStack/redoStack が本体
 let docs = [], cur = 0;
@@ -596,6 +606,11 @@ function buildStatic() {
     sw.appendChild(b);
   }
 }
+// 「見る」で、ほかの線・色を うすく（.18）／見えなく（0）する
+function viewDim() {
+  if (ui.mode !== 'view' || (ui.viewKind === 'one' && !cById(viewId))) return '';
+  return ui.viewOther === 'hide' ? 0 : .18;
+}
 function renderDrawing() {
   drawLayer.replaceChildren(); ghostLayer.replaceChildren();
   const m = ui.mode, ghosts = m === 'arc' || m === 'move';
@@ -606,8 +621,9 @@ function renderDrawing() {
     else if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
     if (m === 'move' && !isLine(c)) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
   }
-  const fc = m === 'view' ? cById(viewId) : null;
-  drawLayer.style.opacity = fc ? .18 : '';
+  const fc = m === 'view' && ui.viewKind === 'one' ? cById(viewId) : null, allC = m === 'view' && ui.viewKind === 'centers';
+  drawLayer.style.opacity = viewDim();
+  if (allC) for (const c of state.circles) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: 6, class: 'focusCenter' }, ghostLayer); }
   if (fc) {  // けした線は無視して、円の全体と中心を出す
     const [cx, cy] = toPx(fc.x, fc.y);
     el('circle', { cx, cy, r: fc.r * STEP, class: 'focusLine' }, ghostLayer);
@@ -667,6 +683,9 @@ function renderPanel() {
   }
   document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', b.dataset.color === ui.color));
   document.querySelectorAll('#erasedStyle button').forEach(b => b.setAttribute('aria-pressed', b.dataset.style === ui.erased));
+  document.querySelectorAll('#viewKind button').forEach(b => b.setAttribute('aria-pressed', b.dataset.kind === ui.viewKind));
+  document.querySelectorAll('#viewOther button').forEach(b => b.setAttribute('aria-pressed', b.dataset.other === ui.viewOther));
+  $('viewNote').textContent = ui.viewKind === 'one' ? '見たい 円を おすと、その 円の 全体と 中心が 太く 出ます（けした 線も 円に もどして 見せます）。' : 'すべての 円の 中心を 太く 出して います。';
   $('restoreArcs').disabled = !Object.keys(state.hidden).length;
   $('clearFills').disabled = !state.fills.length;
   $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length;
@@ -753,7 +772,7 @@ function makeRef(gx, gy, circles = state.circles) {
 function updateFills() {
   // 円を引っぱっている間は塗り直さず薄く見せる（離したら塗り直す）
   if (gesture && (gesture.type === 'move' || gesture.type === 'arc')) { fillCanvas.style.opacity = .3; return; }
-  fillCanvas.style.opacity = ui.mode === 'view' && cById(viewId) ? .25 : '';
+  fillCanvas.style.opacity = viewDim();
   const key = geomKey() + '|' + JSON.stringify(state.fills);
   if (key === fillCache.key) return;
   const ctx = fillCanvas.getContext('2d');
@@ -839,6 +858,7 @@ svg.addEventListener('pointerdown', e => {
   const p = svgPoint(e); hover = null;
   if (ui.mode === 'fill') { fillTap(p); return; }
   if (ui.mode === 'view') {
+    if (ui.viewKind === 'centers') { say('いまは すべての 円の 中心を 見せて います。'); return; }
     const [gx, gy] = toGrid(p.x, p.y), c = nearestLine(p, tolOf(e)), hit = c && !isLine(c) ? c : smallestContaining(gx, gy);
     viewId = hit && hit.id !== viewId ? hit.id : null;
     render(); if (hit && viewId) say(`${RB('半径', 'はんけい')} ${fmt(hit.r)}ますの 円です。`);
@@ -1006,7 +1026,9 @@ function deleteSelected() {
 }
 $('deleteCircle').onclick = deleteSelected;
 document.querySelectorAll('#erasedStyle button').forEach(b => b.onclick = () => { ui.erased = b.dataset.style; render(); });
-$('viewClear').onclick = () => { viewId = null; render(); };
+$('viewClear').onclick = () => { viewId = null; ui.viewKind = 'one'; saveUI(); render(); };
+document.querySelectorAll('#viewKind button').forEach(b => b.onclick = () => { ui.viewKind = b.dataset.kind; saveUI(); render(); });
+document.querySelectorAll('#viewOther button').forEach(b => b.onclick = () => { ui.viewOther = b.dataset.other; saveUI(); render(); });
 $('restoreArcs').onclick = () => { if (commit(() => { state.hidden = {}; })) say('けした 線を ぜんぶ もどしました。'); };
 $('clearFills').onclick = () => { if (commit(() => { state.fills = []; })) say('色を ぜんぶ けしました。'); };
 $('undo').onclick = undo; $('redo').onclick = redo;
