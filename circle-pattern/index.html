@@ -620,7 +620,7 @@ function buildStatic() {
 const DIM_OFF = 18;  // 直線からの距離（px）
 function dimLen(l) {
   const d = Math.hypot(l.x2 - l.x1, l.y2 - l.y1);
-  return Math.abs(d - Math.round(d)) < 1e-9 ? `${Math.round(d)}ます` : `やく ${fmt(Math.round(d * 10) / 10)}ます`;
+  return Math.abs(d - Math.round(d)) < 1e-9 ? `${Math.round(d)}cm` : `やく ${fmt(Math.round(d * 10) / 10)}cm`;
 }
 function drawDim(l) {
   const [x1, y1] = toPx(l.x1, l.y1), [x2, y2] = toPx(l.x2, l.y2), L = Math.hypot(x2 - x1, y2 - y1);
