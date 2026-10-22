@@ -79,6 +79,11 @@ header ruby rt{font-size:.5em}
 #board .centerSel{fill:#1684c7}
 #board .dot{fill:#fff;stroke:#1684c7;stroke-width:1.6}
 #board .ghostAdd{stroke:#1684c7;stroke-width:2.4;fill:#1684c711;stroke-dasharray:7 5}
+#board .dimLine{stroke:#1e3a8a;stroke-width:1.6;fill:none}
+#board .dimHead{fill:#1e3a8a}
+#board .dimText{font:700 15px var(--font);fill:#1e3a8a;stroke:#fff;stroke-width:4px;paint-order:stroke}
+#board .focusLine{stroke:#000;stroke-width:4.5;fill:none}
+#board .focusCenter{fill:#000}
 #board .ghostLine{stroke:#1684c7;stroke-width:2.4;stroke-dasharray:7 5;stroke-linecap:round}
 #board .radiusLine{stroke:#1684c7;stroke-width:1.6;stroke-dasharray:4 4}
 #board .label{font:700 16px var(--font);fill:#0b4f86;stroke:#fff;stroke-width:4px;paint-order:stroke}
@@ -191,6 +196,8 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     <button class="modeBtn" data-mode="add" aria-pressed="true"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11"/><circle cx="15" cy="15" r="1.6" fill="currentColor"/><path d="M15 15h11"/></svg><span>円を<br>かく</span></button>
     <button class="modeBtn" data-mode="move" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M15 3v24M3 15h24M11 7l4-4 4 4M11 23l4 4 4-4M7 11l-4 4 4 4M23 11l4 4-4 4"/></svg><span>うごかす</span></button>
     <button class="modeBtn" data-mode="arc" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M4 21A11 11 0 0 1 15 7"/><path d="M15 7a11 11 0 0 1 11 14" stroke-dasharray="2.5 3.5"/></svg><span>線を<br>けす</span></button>
+ <button class="modeBtn" data-mode="dim" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M4 22h22M4 18v8M26 18v8M4 10h22M8 7l-4 3 4 3M22 7l4 3-4 3"/></svg><span><ruby>寸法<rt>すんぽう</rt></ruby></span></button>
+    <button class="modeBtn" data-mode="view" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M2 15s5-8 13-8 13 8 13 8-5 8-13 8S2 15 2 15z"/><circle cx="15" cy="15" r="4"/></svg><span>見る</span></button>
     <button class="modeBtn" data-mode="fill" aria-pressed="false"><svg viewBox="0 0 30 30"><circle cx="11" cy="15" r="8"/><circle cx="19" cy="15" r="8"/><path d="M15 8.1a8 8 0 0 1 0 13.8 8 8 0 0 1 0-13.8z" fill="currentColor" opacity=".55"/></svg><span>色を<br>ぬる</span></button>
   </nav>
 
@@ -253,6 +260,26 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
         <button data-style="red" aria-pressed="false">赤で 見せる</button>
       </div>
       <button id="restoreArcs" class="wide">けした 線を ぜんぶ もどす</button>
+    </section>
+
+    <section class="ctx" data-mode="dim" hidden>
+      <p class="note"><ruby>直線<rt>ちょくせん</rt></ruby>を おすと、長さの <ruby>寸法<rt>すんぽう</rt></ruby>が つきます。もう一度 おすと 反対がわに、もう一度で きえます。</p>
+      <button id="dimClear" class="wide">寸法を ぜんぶ けす</button>
+    </section>
+
+    <section class="ctx" data-mode="view" hidden>
+      <h2>見る もの</h2>
+      <div class="segBtns" id="viewKind">
+        <button data-kind="one" aria-pressed="true">1つの 円</button>
+        <button data-kind="centers" aria-pressed="false">中心 ぜんぶ</button>
+      </div>
+      <h2>ほかの 線と 色</h2>
+      <div class="segBtns" id="viewOther">
+        <button data-other="dim" aria-pressed="true">うすく</button>
+        <button data-other="hide" aria-pressed="false">見せない</button>
+      </div>
+      <p class="note" id="viewNote"></p>
+      <button id="viewClear" class="wide">もとの 見え方に もどす</button>
     </section>
 
     <section class="ctx" data-mode="fill" hidden>
@@ -354,23 +381,25 @@ const HINT = {
   move: '円や 直線を おして ひっぱると うごきます。右の ボタンでも うごかせます。',
   line: `ます目の 点を おしたまま、つなぎたい 点まで ひっぱります。`,
   arc: 'けしたい 線を おすと きえます。点線を おすと もどります。なぞると まとめて けせます。',
+  dim: '寸法を つけたい 直線を おします。おすたびに 上がわ → 下がわ → なし と かわります。',
+  view: '見たい 円を おします。ほかの ところを おすと もとに もどります。',
   fill: '色を えらんで、線で かこまれた ところを おします。',
 };
 
 // ===== 状態 =====
 // cols,rows: ます目の数　sub: 1ますを いくつに 分けるか（1/2/5）
 // circles: {id,x,y,r}（ます目単位。1/sub きざみ）
-// lines:   {id,x1,y1,x2,y2}（ます目単位。円と同じ id の通し番号）
+// lines:   {id,x1,y1,x2,y2,dim?}（ます目単位。円と同じ id の通し番号。dim=寸法の向き 1/-1、無ければ寸法なし）
 // hidden:  {id: [[開始,終了],...]}  けした線の範囲。円は角度0〜2π、直線は端1→端2を0〜1で表す。昇順・重なりなし
 // fills:   {ref,u,v,color,open}  塗った点。ref=その点を囲む最小の円（円に乗って一緒に動く）。
 //          u,v は ref の中心からの位置を半径で割った値（ref=null なら ます目座標）。
 //          open=塗った時点で外枠に接していたか（false の塗りが枠に届いたら「もれた」とみなして外す）
 let state = { cols: 20, rows: 16, sub: 1, circles: [], lines: [], hidden: {}, fills: [], nextId: 1 };
-let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal' };
+let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen: false, erased: 'hide', tone: 'normal', viewKind: 'one', viewOther: 'dim' };
 let selectedId = null, undoStack = [], redoStack = [];
 // タブ：作った図ごとに {name, state, undo, redo}。いま開いている図は state/undoStack/redoStack が本体
 let docs = [], cur = 0;
-let gesture = null, hover = null;
+let gesture = null, hover = null, viewId = null;  // viewId：「見る」で太く出している円
 
 const $ = id => document.getElementById(id);
 const svg = $('board'), NS = 'http://www.w3.org/2000/svg';
@@ -587,6 +616,34 @@ function buildStatic() {
     sw.appendChild(b);
   }
 }
+// 寸法：直線から少し離して、両はしに矢じりのある線と長さを藍色で出す
+const DIM_OFF = 18;  // 直線からの距離（px）
+function dimLen(l) {
+  const d = Math.hypot(l.x2 - l.x1, l.y2 - l.y1);
+  return Math.abs(d - Math.round(d)) < 1e-9 ? `${Math.round(d)}cm` : `やく ${fmt(Math.round(d * 10) / 10)}cm`;
+}
+function drawDim(l) {
+  const [x1, y1] = toPx(l.x1, l.y1), [x2, y2] = toPx(l.x2, l.y2), L = Math.hypot(x2 - x1, y2 - y1);
+  const ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+  let nx = uy, ny = -ux;                                   // 上がわ（画面の上・左）を 1 とする
+  if (ny > 1e-9 || (Math.abs(ny) < 1e-9 && nx > 0)) { nx = -nx; ny = -ny; }
+  nx *= l.dim; ny *= l.dim;
+  const o = DIM_OFF, a = [x1 + nx * o, y1 + ny * o], b = [x2 + nx * o, y2 + ny * o], g = el('g', {}, drawLayer);
+  el('line', { x1, y1, x2: x1 + nx * (o + 5), y2: y1 + ny * (o + 5), class: 'dimLine' }, g);   // 補助線
+  el('line', { x1: x2, y1: y2, x2: x2 + nx * (o + 5), y2: y2 + ny * (o + 5), class: 'dimLine' }, g);
+  el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: 'dimLine' }, g);
+  const head = (p, sx, sy) => el('path', { d: `M${p[0]} ${p[1]}L${p[0] + sx * 9 - sy * 3.5} ${p[1] + sy * 9 + sx * 3.5}L${p[0] + sx * 9 + sy * 3.5} ${p[1] + sy * 9 - sx * 3.5}Z`, class: 'dimHead' }, g);
+  head(a, ux, uy); head(b, -ux, -uy);
+  let ang = Math.atan2(uy, ux) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang <= -90) ang += 180;  // 字が さかさまに ならない向き
+  const tx = (a[0] + b[0]) / 2 + nx * 14, ty = (a[1] + b[1]) / 2 + ny * 14;
+  const t = el('text', { x: tx, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle', transform: `rotate(${ang} ${tx} ${ty})`, class: 'dimText' }, g);
+  t.textContent = dimLen(l);
+}
+// 「見る」で、ほかの線・色を うすく（.18）／見えなく（0）する
+function viewDim() {
+  if (ui.mode !== 'view' || (ui.viewKind === 'one' && !cById(viewId))) return '';
+  return ui.viewOther === 'hide' ? 0 : .18;
+}
 function renderDrawing() {
   drawLayer.replaceChildren(); ghostLayer.replaceChildren();
   const m = ui.mode, ghosts = m === 'arc' || m === 'move';
@@ -596,6 +653,15 @@ function renderDrawing() {
     if (ui.erased === 'red') for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'erasedRed', drawLayer);
     else if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
     if (m === 'move' && !isLine(c)) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
+  }
+  for (const l of state.lines) if (l.dim) drawDim(l);
+  const fc = m === 'view' && ui.viewKind === 'one' ? cById(viewId) : null, allC = m === 'view' && ui.viewKind === 'centers';
+  drawLayer.style.opacity = viewDim();
+  if (allC) for (const c of state.circles) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: 6, class: 'focusCenter' }, ghostLayer); }
+  if (fc) {  // けした線は無視して、円の全体と中心を出す
+    const [cx, cy] = toPx(fc.x, fc.y);
+    el('circle', { cx, cy, r: fc.r * STEP, class: 'focusLine' }, ghostLayer);
+    el('circle', { cx, cy, r: 6, class: 'focusCenter' }, ghostLayer);
   }
   if (m === 'arc') {
     const cs = shapes();
@@ -631,7 +697,7 @@ function renderOverlay() {
 function renderPanel() {
   document.querySelectorAll('.modeBtn').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === ui.mode));
   document.querySelectorAll('.ctx[data-mode]').forEach(s => { s.hidden = s.dataset.mode !== ui.mode; });
-  $('addR').innerHTML = `${fmt(ui.radius)}<small>ます</small>`;
+  $('addR').innerHTML = `${fmt(ui.radius)}<small>cm</small>`;
   $('addRminus').disabled = ui.radius <= R_MIN; $('addRplus').disabled = ui.radius >= R_MAX;
   const sel = ui.mode === 'move' ? sById(selectedId) : null;
   $('moveNone').hidden = !!sel; $('moveSel').hidden = !sel;
@@ -643,7 +709,7 @@ function renderPanel() {
   } else if (sel) {
     $('selRbox').hidden = false; $('deleteCircle').textContent = 'この 円を けす';
     $('selTitle').innerHTML = `えらんだ 円の ${RB('半径', 'はんけい')}`;
-    $('selR').innerHTML = `${fmt(sel.r)}<small>ます</small>`;
+    $('selR').innerHTML = `${fmt(sel.r)}<small>cm</small>`;
     $('selRminus').disabled = sel.r <= R_MIN; $('selRplus').disabled = sel.r >= R_MAX;
     document.querySelectorAll('.pad button').forEach(b => {
       const nx = sel.x + b.dataset.dx * U, ny = sel.y + b.dataset.dy * U; b.disabled = nx < 0 || nx > COLS || ny < 0 || ny > ROWS;
@@ -651,6 +717,10 @@ function renderPanel() {
   }
   document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', b.dataset.color === ui.color));
   document.querySelectorAll('#erasedStyle button').forEach(b => b.setAttribute('aria-pressed', b.dataset.style === ui.erased));
+  document.querySelectorAll('#viewKind button').forEach(b => b.setAttribute('aria-pressed', b.dataset.kind === ui.viewKind));
+  document.querySelectorAll('#viewOther button').forEach(b => b.setAttribute('aria-pressed', b.dataset.other === ui.viewOther));
+  $('viewNote').textContent = ui.viewKind === 'one' ? '見たい 円を おすと、その 円の 全体と 中心が 太く 出ます（けした 線も 円に もどして 見せます）。' : 'すべての 円の 中心を 太く 出して います。';
+  $('dimClear').disabled = !state.lines.some(l => l.dim);
   $('restoreArcs').disabled = !Object.keys(state.hidden).length;
   $('clearFills').disabled = !state.fills.length;
   $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length;
@@ -737,7 +807,7 @@ function makeRef(gx, gy, circles = state.circles) {
 function updateFills() {
   // 円を引っぱっている間は塗り直さず薄く見せる（離したら塗り直す）
   if (gesture && (gesture.type === 'move' || gesture.type === 'arc')) { fillCanvas.style.opacity = .3; return; }
-  fillCanvas.style.opacity = '';
+  fillCanvas.style.opacity = viewDim();
   const key = geomKey() + '|' + JSON.stringify(state.fills);
   if (key === fillCache.key) return;
   const ctx = fillCanvas.getContext('2d');
@@ -807,7 +877,7 @@ function addCircle(x, y, r) {
   const id = state.nextId;
   commit(() => { state.circles.push({ id, x, y, r }); state.nextId++; });
   selectedId = id; renderPanel();
-  say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}ます）`);
+  say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}cm）`);
 }
 function addLine(g) {
   const { x1, y1, x2, y2 } = g;
@@ -822,6 +892,21 @@ svg.addEventListener('pointerdown', e => {
   if (gesture || (e.pointerType === 'mouse' && e.button !== 0)) return;
   const p = svgPoint(e); hover = null;
   if (ui.mode === 'fill') { fillTap(p); return; }
+  if (ui.mode === 'dim') {
+    const c = nearestLine(p, tolOf(e));
+    if (!c || !isLine(c)) { say(`${RB('直線', 'ちょくせん')}の 上を おしてください。`); return; }
+    const next = !c.dim ? 1 : c.dim === 1 ? -1 : 0;
+    commit(() => { if (next) c.dim = next; else delete c.dim; });
+    say(next ? `${RB('寸法', 'すんぽう')}を つけました（${dimLen(c)}）。` : `${RB('寸法', 'すんぽう')}を けしました。`);
+    return;
+  }
+  if (ui.mode === 'view') {
+    if (ui.viewKind === 'centers') { say('いまは すべての 円の 中心を 見せて います。'); return; }
+    const [gx, gy] = toGrid(p.x, p.y), c = nearestLine(p, tolOf(e)), hit = c && !isLine(c) ? c : smallestContaining(gx, gy);
+    viewId = hit && hit.id !== viewId ? hit.id : null;
+    render(); if (hit && viewId) say(`${RB('半径', 'はんけい')} ${fmt(hit.r)}cmの 円です。`);
+    return;
+  }
   if (ui.mode === 'add') {
     const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (!inGrid(x, y)) { say('ます目の 中を おしてください。'); return; }
@@ -984,6 +1069,10 @@ function deleteSelected() {
 }
 $('deleteCircle').onclick = deleteSelected;
 document.querySelectorAll('#erasedStyle button').forEach(b => b.onclick = () => { ui.erased = b.dataset.style; render(); });
+$('dimClear').onclick = () => { if (commit(() => state.lines.forEach(l => delete l.dim))) say('寸法を ぜんぶ けしました。'); };
+$('viewClear').onclick = () => { viewId = null; ui.viewKind = 'one'; saveUI(); render(); };
+document.querySelectorAll('#viewKind button').forEach(b => b.onclick = () => { ui.viewKind = b.dataset.kind; saveUI(); render(); });
+document.querySelectorAll('#viewOther button').forEach(b => b.onclick = () => { ui.viewOther = b.dataset.other; saveUI(); render(); });
 $('restoreArcs').onclick = () => { if (commit(() => { state.hidden = {}; })) say('けした 線を ぜんぶ もどしました。'); };
 $('clearFills').onclick = () => { if (commit(() => { state.fills = []; })) say('色を ぜんぶ けしました。'); };
 $('undo').onclick = undo; $('redo').onclick = redo;
@@ -1233,7 +1322,7 @@ $('shelfClose').onclick = () => { $('shelfPop').hidden = true; };
 function parseData(d) {
   if (!d || d.version !== 2 || !Array.isArray(d.circles)) return null;
   const circles = d.circles.filter(c => [c.id, c.x, c.y, c.r].every(Number.isFinite)).map(c => ({ id: c.id, x: c.x, y: c.y, r: c.r }));
-  const lines = (d.lines || []).filter(l => [l.id, l.x1, l.y1, l.x2, l.y2].every(Number.isFinite) && (l.x1 !== l.x2 || l.y1 !== l.y2)).map(l => ({ id: l.id, x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2 }));
+  const lines = (d.lines || []).filter(l => [l.id, l.x1, l.y1, l.x2, l.y2].every(Number.isFinite) && (l.x1 !== l.x2 || l.y1 !== l.y2)).map(l => ({ id: l.id, x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, ...(l.dim === 1 || l.dim === -1 ? { dim: l.dim } : {}) }));
   const ids = new Set(circles.concat(lines).map(c => c.id)), hidden = {};
   for (const [k, list] of Object.entries(d.hidden || {})) if (ids.has(+k) && Array.isArray(list)) { const m = mergeIv(list.filter(iv => iv.length === 2 && iv.every(Number.isFinite))); if (m.length) hidden[k] = m; }
   const fills = (d.fills || []).filter(f => /^#[0-9a-f]{6}$/i.test(f.color) && Number.isFinite(f.u) && Number.isFinite(f.v));
