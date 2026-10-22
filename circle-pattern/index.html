@@ -79,6 +79,8 @@ header ruby rt{font-size:.5em}
 #board .centerSel{fill:#1684c7}
 #board .dot{fill:#fff;stroke:#1684c7;stroke-width:1.6}
 #board .ghostAdd{stroke:#1684c7;stroke-width:2.4;fill:#1684c711;stroke-dasharray:7 5}
+#board .focusLine{stroke:#000;stroke-width:4.5;fill:none}
+#board .focusCenter{fill:#000}
 #board .ghostLine{stroke:#1684c7;stroke-width:2.4;stroke-dasharray:7 5;stroke-linecap:round}
 #board .radiusLine{stroke:#1684c7;stroke-width:1.6;stroke-dasharray:4 4}
 #board .label{font:700 16px var(--font);fill:#0b4f86;stroke:#fff;stroke-width:4px;paint-order:stroke}
@@ -191,6 +193,7 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
     <button class="modeBtn" data-mode="add" aria-pressed="true"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11"/><circle cx="15" cy="15" r="1.6" fill="currentColor"/><path d="M15 15h11"/></svg><span>円を<br>かく</span></button>
     <button class="modeBtn" data-mode="move" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M15 3v24M3 15h24M11 7l4-4 4 4M11 23l4 4 4-4M7 11l-4 4 4 4M23 11l4 4-4 4"/></svg><span>うごかす</span></button>
     <button class="modeBtn" data-mode="arc" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M4 21A11 11 0 0 1 15 7"/><path d="M15 7a11 11 0 0 1 11 14" stroke-dasharray="2.5 3.5"/></svg><span>線を<br>けす</span></button>
+    <button class="modeBtn" data-mode="view" aria-pressed="false"><svg viewBox="0 0 30 30"><path d="M2 15s5-8 13-8 13 8 13 8-5 8-13 8S2 15 2 15z"/><circle cx="15" cy="15" r="4"/></svg><span>見る</span></button>
     <button class="modeBtn" data-mode="fill" aria-pressed="false"><svg viewBox="0 0 30 30"><circle cx="11" cy="15" r="8"/><circle cx="19" cy="15" r="8"/><path d="M15 8.1a8 8 0 0 1 0 13.8 8 8 0 0 1 0-13.8z" fill="currentColor" opacity=".55"/></svg><span>色を<br>ぬる</span></button>
   </nav>
 
@@ -253,6 +256,11 @@ details.teacher .row button{flex:1;min-height:44px;font-size:14px}
         <button data-style="red" aria-pressed="false">赤で 見せる</button>
       </div>
       <button id="restoreArcs" class="wide">けした 線を ぜんぶ もどす</button>
+    </section>
+
+    <section class="ctx" data-mode="view" hidden>
+      <p class="note">見たい 円を おすと、その 円の 全体と 中心が 太く 出ます。ほかの 線と 色は うすく なります（けした 線も 円に もどして 見せます）。</p>
+      <button id="viewClear" class="wide">もとの 見え方に もどす</button>
     </section>
 
     <section class="ctx" data-mode="fill" hidden>
@@ -354,6 +362,7 @@ const HINT = {
   move: '円や 直線を おして ひっぱると うごきます。右の ボタンでも うごかせます。',
   line: `ます目の 点を おしたまま、つなぎたい 点まで ひっぱります。`,
   arc: 'けしたい 線を おすと きえます。点線を おすと もどります。なぞると まとめて けせます。',
+  view: '見たい 円を おします。ほかの ところを おすと もとに もどります。',
   fill: '色を えらんで、線で かこまれた ところを おします。',
 };
 
@@ -370,7 +379,7 @@ let ui = { mode: 'add', radius: 3, color: COLORS[0].hex, grid: true, teacherOpen
 let selectedId = null, undoStack = [], redoStack = [];
 // タブ：作った図ごとに {name, state, undo, redo}。いま開いている図は state/undoStack/redoStack が本体
 let docs = [], cur = 0;
-let gesture = null, hover = null;
+let gesture = null, hover = null, viewId = null;  // viewId：「見る」で太く出している円
 
 const $ = id => document.getElementById(id);
 const svg = $('board'), NS = 'http://www.w3.org/2000/svg';
@@ -597,6 +606,13 @@ function renderDrawing() {
     else if (ghosts) for (const [s, e] of state.hidden[c.id] || []) arcShape(c, s, e, 'ghost' + (sel ? ' sel' : ''), ghostLayer);
     if (m === 'move' && !isLine(c)) { const [cx, cy] = toPx(c.x, c.y); el('circle', { cx, cy, r: sel ? 5 : 3, class: sel ? 'centerSel' : 'center' }, ghostLayer); }
   }
+  const fc = m === 'view' ? cById(viewId) : null;
+  drawLayer.style.opacity = fc ? .18 : '';
+  if (fc) {  // けした線は無視して、円の全体と中心を出す
+    const [cx, cy] = toPx(fc.x, fc.y);
+    el('circle', { cx, cy, r: fc.r * STEP, class: 'focusLine' }, ghostLayer);
+    el('circle', { cx, cy, r: 6, class: 'focusCenter' }, ghostLayer);
+  }
   if (m === 'arc') {
     const cs = shapes();
     for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) for (const p of crossings(cs[i], cs[j])) {
@@ -737,7 +753,7 @@ function makeRef(gx, gy, circles = state.circles) {
 function updateFills() {
   // 円を引っぱっている間は塗り直さず薄く見せる（離したら塗り直す）
   if (gesture && (gesture.type === 'move' || gesture.type === 'arc')) { fillCanvas.style.opacity = .3; return; }
-  fillCanvas.style.opacity = '';
+  fillCanvas.style.opacity = ui.mode === 'view' && cById(viewId) ? .25 : '';
   const key = geomKey() + '|' + JSON.stringify(state.fills);
   if (key === fillCache.key) return;
   const ctx = fillCanvas.getContext('2d');
@@ -822,6 +838,12 @@ svg.addEventListener('pointerdown', e => {
   if (gesture || (e.pointerType === 'mouse' && e.button !== 0)) return;
   const p = svgPoint(e); hover = null;
   if (ui.mode === 'fill') { fillTap(p); return; }
+  if (ui.mode === 'view') {
+    const [gx, gy] = toGrid(p.x, p.y), c = nearestLine(p, tolOf(e)), hit = c && !isLine(c) ? c : smallestContaining(gx, gy);
+    viewId = hit && hit.id !== viewId ? hit.id : null;
+    render(); if (hit && viewId) say(`${RB('半径', 'はんけい')} ${fmt(hit.r)}ますの 円です。`);
+    return;
+  }
   if (ui.mode === 'add') {
     const [gx, gy] = toGrid(p.x, p.y), x = snapV(gx), y = snapV(gy);
     if (!inGrid(x, y)) { say('ます目の 中を おしてください。'); return; }
@@ -984,6 +1006,7 @@ function deleteSelected() {
 }
 $('deleteCircle').onclick = deleteSelected;
 document.querySelectorAll('#erasedStyle button').forEach(b => b.onclick = () => { ui.erased = b.dataset.style; render(); });
+$('viewClear').onclick = () => { viewId = null; render(); };
 $('restoreArcs').onclick = () => { if (commit(() => { state.hidden = {}; })) say('けした 線を ぜんぶ もどしました。'); };
 $('clearFills').onclick = () => { if (commit(() => { state.fills = []; })) say('色を ぜんぶ けしました。'); };
 $('undo').onclick = undo; $('redo').onclick = redo;
