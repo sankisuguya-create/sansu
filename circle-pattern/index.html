@@ -697,7 +697,7 @@ function renderOverlay() {
 function renderPanel() {
   document.querySelectorAll('.modeBtn').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === ui.mode));
   document.querySelectorAll('.ctx[data-mode]').forEach(s => { s.hidden = s.dataset.mode !== ui.mode; });
-  $('addR').innerHTML = `${fmt(ui.radius)}<small>ます</small>`;
+  $('addR').innerHTML = `${fmt(ui.radius)}<small>cm</small>`;
   $('addRminus').disabled = ui.radius <= R_MIN; $('addRplus').disabled = ui.radius >= R_MAX;
   const sel = ui.mode === 'move' ? sById(selectedId) : null;
   $('moveNone').hidden = !!sel; $('moveSel').hidden = !sel;
@@ -709,7 +709,7 @@ function renderPanel() {
   } else if (sel) {
     $('selRbox').hidden = false; $('deleteCircle').textContent = 'この 円を けす';
     $('selTitle').innerHTML = `えらんだ 円の ${RB('半径', 'はんけい')}`;
-    $('selR').innerHTML = `${fmt(sel.r)}<small>ます</small>`;
+    $('selR').innerHTML = `${fmt(sel.r)}<small>cm</small>`;
     $('selRminus').disabled = sel.r <= R_MIN; $('selRplus').disabled = sel.r >= R_MAX;
     document.querySelectorAll('.pad button').forEach(b => {
       const nx = sel.x + b.dataset.dx * U, ny = sel.y + b.dataset.dy * U; b.disabled = nx < 0 || nx > COLS || ny < 0 || ny > ROWS;
@@ -877,7 +877,7 @@ function addCircle(x, y, r) {
   const id = state.nextId;
   commit(() => { state.circles.push({ id, x, y, r }); state.nextId++; });
   selectedId = id; renderPanel();
-  say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}ます）`);
+  say(`円を かきました。（${RB('半径', 'はんけい')} ${fmt(r)}cm）`);
 }
 function addLine(g) {
   const { x1, y1, x2, y2 } = g;
@@ -904,7 +904,7 @@ svg.addEventListener('pointerdown', e => {
     if (ui.viewKind === 'centers') { say('いまは すべての 円の 中心を 見せて います。'); return; }
     const [gx, gy] = toGrid(p.x, p.y), c = nearestLine(p, tolOf(e)), hit = c && !isLine(c) ? c : smallestContaining(gx, gy);
     viewId = hit && hit.id !== viewId ? hit.id : null;
-    render(); if (hit && viewId) say(`${RB('半径', 'はんけい')} ${fmt(hit.r)}ますの 円です。`);
+    render(); if (hit && viewId) say(`${RB('半径', 'はんけい')} ${fmt(hit.r)}cmの 円です。`);
     return;
   }
   if (ui.mode === 'add') {
