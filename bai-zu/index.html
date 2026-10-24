@@ -26,6 +26,10 @@ header{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px;backgr
 header h1{font-size:18px;margin:0 6px 0 2px;white-space:nowrap}
 header select{min-height:44px;font-size:17px;border:1px solid #c3ccd7;border-radius:10px;padding:0 8px;max-width:46vw;background:#fff}
 header .sp{flex:1}
+.seg{display:inline-flex}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:10px 0 0 10px}
+.seg button:last-child{border-radius:0 10px 10px 0}
 
 #problem{flex:none;font-size:clamp(20px,2.6vw,34px);line-height:1.55;padding:10px 24px 4px;font-weight:700}
 #stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:4px 16px}
@@ -55,6 +59,9 @@ footer button{min-height:56px;font-size:20px;min-width:120px}
 .arrow.big{stroke:var(--ink-link);stroke-width:3.5}
 .pop{animation:pop .3s ease-out both}
 @keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.zero{stroke:var(--ink);stroke-width:3}
+.axis{stroke:var(--ink);stroke-width:2.5}
+.guide{stroke:var(--ink-sub);stroke-width:1.5;stroke-dasharray:4 5}
 .ph{font-family:var(--font);fill:#9aa3ad}
 
 /* 作成ダイアログ */
@@ -80,14 +87,15 @@ dialog legend{font-weight:700;padding:0 4px}
   <select id="sel" aria-label="問題"></select>
   <button id="bMake">問題をつくる</button>
   <span class="sp"></span>
-  <button id="vTape" aria-pressed="true">テープ図</button>
-  <button id="vRel" aria-pressed="true">関係図</button>
+  <span class="seg" role="group" aria-label="表示">
+    <button data-v="both" aria-pressed="true">両方</button><button data-v="tape" aria-pressed="false">テープ図だけ</button><button data-v="rel" aria-pressed="false">関係図だけ</button>
+  </span>
   <button id="bFull">全画面</button>
 </header>
 
 <div id="problem"></div>
 <div id="stage">
-  <svg id="tapeSvg" viewBox="0 0 1000 250" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
+  <svg id="tapeSvg" viewBox="0 0 1000 290" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
   <svg id="relSvg" viewBox="0 0 1000 230" preserveAspectRatio="xMidYMid meet" aria-label="関係図"></svg>
 </div>
 <div id="eq"></div>
@@ -153,7 +161,7 @@ var LS_KEY = 'baizu.custom.v1';
 
 var custom = [];
 try { custom = JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; } catch (e) { custom = []; }
-var P = null, step = 0, view = {tape:true, rel:true};
+var P = null, step = 0, view = {tape:true, rel:true}, VIEW_KEY = 'baizu.view';
 
 function $(id){ return document.getElementById(id); }
 function all(){ return PRESETS.concat(custom); }
@@ -167,7 +175,7 @@ function shownVal(i){
     return isUnk && step < 5 ? null : v;
   }
   if (i === 1) return step >= 4 ? v : null;          // 2つめは「順に」で分かる
-  if (i === 2) return step >= 6 ? v : null;
+  if (i === 2) return step >= 4 ? v : null;          // 「順に」の式で求まるので同じ段で出す
   return v;
 }
 function shownK(){ return P.unk === 'k' && step < 5 ? null : P.k; }
@@ -204,6 +212,19 @@ function drawTape(){
     var sv = shownVal(i);
     label(g, X0 + v[i]*sc + 12, y+th/2+10, sv, P.unit, 28, 'start', sv != null && (step >= (n===2?5:4)) ? revCls(i) : '');
   }
+  // 0の線と下の目盛り線（数直線の役目）
+  var last = visible.lastIndexOf(true), yA = top + (n-1)*rowH + th + 48;
+  svg.appendChild(el('line', {x1:X0, x2:X0, y1:top-10, y2:yA+8, class:'zero'}));
+  svg.appendChild(el('line', {x1:X0, x2:X0+W+20, y1:yA, y2:yA, class:'axis'}));
+  svg.appendChild(el('text', {x:X0, y:yA+32, 'text-anchor':'middle', 'font-size':24, class:'tx'}, '0'));
+  // 目盛り：もとにする量（1つめ）の長さごと。区切る前に出すと答えが見えるので区切りの段から
+  if (step >= (n === 2 ? 3 : 5)){
+    var cnt = Math.round(v[n-1] / v[0]);
+    for (var t = 1; t <= cnt; t++) svg.appendChild(el('line', {x1:X0+t*v[0]*sc, x2:X0+t*v[0]*sc, y1:yA-8, y2:yA+8, class:'axis pop', style:'animation-delay:'+(t*0.1)+'s'}));
+  }
+  // 各テープの右はしから目盛り線へ点線
+  for (var r = 0; r <= last; r++) if (visible[r])
+    svg.appendChild(el('line', {x1:X0+v[r]*sc, x2:X0+v[r]*sc, y1:top+r*rowH+th, y2:yA, class:'guide'}));
   // 区切り
   function divide(row, unitLen, count, fine, numY, delayBase){
     var y = top + row*rowH;
@@ -230,7 +251,7 @@ function drawTape(){
     for (var m = 1; m <= kk; m++){
       var dd = (step === 5 ? m*0.25 : 0) + 's';
       if (m < kk && m % P.ks[0] !== 0) svg.appendChild(el('line',{x1:X0+m*v[0]*sc,x2:X0+m*v[0]*sc,y1:y2,y2:y2+th,class:'div fine pop',style:'animation-delay:'+dd}));
-      svg.appendChild(el('text',{x:X0+(m-0.5)*v[0]*sc,y:y2+th+24,'text-anchor':'middle','font-size':19,class:'cnt pop',style:'animation-delay:'+dd},String(m)));
+      svg.appendChild(el('text',{x:X0+(m-0.5)*v[0]*sc,y:yA+32,'text-anchor':'middle','font-size':19,class:'cnt pop',style:'animation-delay:'+dd},String(m)));
     }
   }
 }
@@ -291,7 +312,7 @@ function eqLines(){
 function render(){
   var S = STEPS[P.kind];
   $('problem').textContent = P.text;
-  $('tapeSvg').hidden = !view.tape; $('relSvg').hidden = !view.rel;
+  $('tapeSvg').style.display = view.tape ? '' : 'none'; $('relSvg').style.display = view.rel ? '' : 'none';   // SVG要素には hidden プロパティが無い
   drawTape(); drawRel();
   $('eq').innerHTML = eqLines().map(function(s){ return '<span>'+s+'</span>'; }).join('');
   var st = $('steps'); st.innerHTML = '';
@@ -358,14 +379,14 @@ function syncForm(){
 $('sel').onchange = function(){ load(Number(this.value)); this.blur(); };
 $('bPrev').onclick = function(){ go(-1); };
 $('bNext').onclick = function(){ go(1); };
-function toggle(key, btn){
-  view[key] = !view[key];
-  if (!view.tape && !view.rel) view[key === 'tape' ? 'rel' : 'tape'] = true;   // どちらか1つは出す
-  $('vTape').setAttribute('aria-pressed', view.tape); $('vRel').setAttribute('aria-pressed', view.rel);
-  render();
+function setView(m){
+  view = {tape: m !== 'rel', rel: m !== 'tape'};
+  document.querySelectorAll('.seg button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.v === m); });
+  try { localStorage.setItem(VIEW_KEY, m); } catch (e) {}
+  if (P) render();
 }
-$('vTape').onclick = function(){ toggle('tape'); };
-$('vRel').onclick = function(){ toggle('rel'); };
+document.querySelectorAll('.seg button').forEach(function(b){ b.onclick = function(){ setView(b.dataset.v); }; });
+try { var vm = localStorage.getItem(VIEW_KEY); if (vm === 'tape' || vm === 'rel') setView(vm); } catch (e) {}
 $('bFull').onclick = function(){
   if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(function(){});
 };
