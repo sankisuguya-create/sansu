@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>何倍でしょう 図</title>
+<style>
+:root{
+  --ink:#1A1A1A;--ink-sub:#616870;--ink-link:#0F5EA8;--ink-alert:#C0330A;
+  --fill-a:#D7E8F8;--fill-b:#FBE3B4;--solid-on:#0F5EA8;
+  --line:#d5dbe3;--bg:#f4f6f8;
+  --font:"BIZ UDPGothic","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","IPAexGothic","IPAGothic",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid #c3ccd7;background:#fff;border-radius:10px;min-height:44px;padding:4px 14px;touch-action:manipulation}
+button:hover{background:#f3f6f9}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.primary{background:var(--solid-on);border-color:var(--solid-on);color:#fff;font-weight:700}
+button.primary:hover{background:#0c4f8d}
+button[aria-pressed="true"]{background:var(--fill-a);border:2px solid var(--ink-link);font-weight:700}
+
+header{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;margin:0 6px 0 2px;white-space:nowrap}
+header select{min-height:44px;font-size:17px;border:1px solid #c3ccd7;border-radius:10px;padding:0 8px;max-width:46vw;background:#fff}
+header .sp{flex:1}
+
+#problem{flex:none;font-size:clamp(20px,2.6vw,34px);line-height:1.55;padding:10px 24px 4px;font-weight:700}
+#stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:4px 16px}
+#stage svg{flex:1;min-height:0;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px}
+#stage svg[hidden]{display:none}
+#eq{flex:none;min-height:1.6em;font-size:clamp(22px,3vw,40px);font-weight:700;padding:2px 24px;display:flex;gap:1.4em;flex-wrap:wrap}
+#eq .ans{color:var(--ink-link)}
+.u{color:var(--ink-link)}
+
+footer{flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-top:1px solid var(--line)}
+footer button{min-height:56px;font-size:20px;min-width:120px}
+#steps{flex:1;display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+#steps button{min-width:0;min-height:40px;font-size:15px;padding:2px 10px;border-radius:20px;color:var(--ink-sub)}
+#steps button.done{color:var(--ink);border-color:#8a96a5}
+#steps button.cur{background:var(--fill-a);border:2px solid var(--ink-link);color:var(--ink);font-weight:700}
+
+/* SVG */
+.tape{stroke:var(--ink);stroke-width:2.5}
+.f0{fill:var(--fill-a)} .f1{fill:var(--fill-b)} .f2{fill:#fff}
+.tx{font-family:var(--font);fill:var(--ink)}
+.unk{fill:var(--ink-link);font-weight:700}
+.rev{fill:var(--ink-link);font-weight:700}
+.div{stroke:var(--ink);stroke-width:2.5}
+.div.fine{stroke-dasharray:6 5;stroke-width:2}
+.cnt{font-family:var(--font);fill:var(--ink-sub);font-weight:700}
+.arrow{stroke:var(--ink);stroke-width:3;fill:none}
+.arrow.big{stroke:var(--ink-link);stroke-width:3.5}
+.pop{animation:pop .3s ease-out both}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.ph{font-family:var(--font);fill:#9aa3ad}
+
+/* 作成ダイアログ */
+dialog{border:none;border-radius:14px;padding:18px 22px;max-width:min(720px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+dialog h2{margin:0 0 10px;font-size:20px}
+dialog fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:8px 12px}
+dialog legend{font-weight:700;padding:0 4px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+.row input[type=text],.row input[type=number]{min-height:42px;border:1px solid #c3ccd7;border-radius:8px;padding:0 8px;font-size:18px}
+.row input[type=number]{width:6em}
+.row input.nm{width:9em}
+.row label.q{display:flex;align-items:center;gap:4px;min-height:42px;padding:0 8px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.row input[type=number]:disabled{background:var(--fill-a);color:var(--ink-link);font-weight:700}
+#cMsg{min-height:1.4em;font-weight:700}
+#cMsg.err{color:var(--ink-alert)}
+.dbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+:fullscreen header{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>何倍でしょう 図</h1>
+  <select id="sel" aria-label="問題"></select>
+  <button id="bMake">問題をつくる</button>
+  <span class="sp"></span>
+  <button id="vTape" aria-pressed="true">テープ図</button>
+  <button id="vRel" aria-pressed="true">関係図</button>
+  <button id="bFull">全画面</button>
+</header>
+
+<div id="problem"></div>
+<div id="stage">
+  <svg id="tapeSvg" viewBox="0 0 1000 250" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
+  <svg id="relSvg" viewBox="0 0 1000 230" preserveAspectRatio="xMidYMid meet" aria-label="関係図"></svg>
+</div>
+<div id="eq"></div>
+<footer>
+  <button id="bPrev">◀ もどる</button>
+  <div id="steps"></div>
+  <button id="bNext" class="primary">つぎへ ▶</button>
+</footer>
+
+<dialog id="dlg">
+  <h2>問題をつくる</h2>
+  <fieldset><legend>量の数</legend>
+    <div class="row">
+      <label class="q"><input type="radio" name="kind" value="2" checked> 2つ（〇倍・もとにする量）</label>
+      <label class="q"><input type="radio" name="kind" value="3"> 3つ（〇倍の〇倍）</label>
+    </div>
+  </fieldset>
+  <fieldset><legend>たんい</legend>
+    <div class="row"><input type="text" id="cUnit" value="m" style="width:6em" aria-label="たんい"> <span style="color:var(--ink-sub)">例：m、L、こ、kg</span></div>
+  </fieldset>
+  <fieldset id="f2"><legend>□にするところを1つえらぶ</legend>
+    <div class="row"><input class="nm" type="text" id="n0" value="赤" aria-label="もとにする量の名前"> は <input type="number" id="a2" value="2" min="1"> <span class="cu"></span><label class="q"><input type="radio" name="unk" value="a"> □</label></div>
+    <div class="row"><input class="nm" type="text" id="n1" value="黄" aria-label="くらべる量の名前"> は <input type="number" id="b2" value="12" min="1"> <span class="cu"></span><label class="q"><input type="radio" name="unk" value="b"> □</label></div>
+    <div class="row">もとにする量の <input type="number" id="k2" value="6" min="2"> 倍 <label class="q"><input type="radio" name="unk" value="k" checked> □</label></div>
+  </fieldset>
+  <fieldset id="f3" hidden><legend>3つの量（3つめの量を□にする）</legend>
+    <div class="row"><input class="nm" type="text" id="m0" value="赤" aria-label="1つめの名前"> は <input type="number" id="a3" value="4" min="1"> <span class="cu"></span></div>
+    <div class="row"><input class="nm" type="text" id="m1" value="青" aria-label="2つめの名前"> は 1つめの <input type="number" id="k31" value="3" min="2"> 倍</div>
+    <div class="row"><input class="nm" type="text" id="m2" value="黄" aria-label="3つめの名前"> は 2つめの <input type="number" id="k32" value="2" min="2"> 倍</div>
+  </fieldset>
+  <div id="cMsg"></div>
+  <div class="dbtn"><button id="cCancel">やめる</button><button id="cOk" class="primary">この問題で図を出す</button></div>
+</dialog>
+
+<script>
+'use strict';
+/* ===== 問題データ（単一真実源） =====
+ kind 2: q=[もとにする量, くらべる量], k=倍, unk='a'|'b'|'k'
+ kind 3: q=[1つめ, 2つめ, 3つめ], ks=[k1,k2], 3つめを求める。val は真の値（□でも図の長さに使う） */
+var PRESETS = [
+  {label:'1時 導入 p.13（赤→青）', kind:2, unk:'b', unit:'m', q:['赤','青'], a:2, k:3,
+   text:'赤の車は2m走りました。青の車が走った長さは、赤の車が走った長さの3倍でした。青の車は何m走りましたか。'},
+  {label:'1時 p.14（赤 2m・黄 12m）', kind:2, unk:'k', unit:'m', q:['赤','黄'], a:2, k:6,
+   text:'赤の車は2m、黄の車は12m走りました。黄の車が走った長さは、赤の車が走った長さの何倍ですか。'},
+  {label:'1時 p.15（ふくろ 6こ・かん 30こ）', kind:2, unk:'k', unit:'こ', q:['ふくろ','かん'], a:6, k:5,
+   text:'ふくろには6こ、かんには30このあめがはいっています。かんのあめの数は、ふくろのあめの数の何倍ですか。'},
+  {label:'2時 p.16（緑 □m・黄 12m）', kind:2, unk:'a', unit:'m', q:['緑','黄'], a:4, k:3,
+   text:'黄の車は12m走りました。黄の車が走った長さは、緑の車が走った長さの3倍でした。緑の車は何m走りましたか。'},
+  {label:'2時 p.17（バケツ □L・水そう 48L）', kind:2, unk:'a', unit:'L', q:['バケツ','水そう'], a:6, k:8,
+   text:'水そうにはいる水は48Lで、バケツにはいる水の8倍です。バケツにはいる水は何Lですか。'},
+  {label:'3時 p.18（赤 4m → 3倍 → 2倍）', kind:3, unit:'m', q:['赤','青','黄'], a:4, ks:[3,2],
+   text:'赤の車は4m走りました。青の車は赤の車の3倍、黄の車は青の車の2倍走りました。黄の車は何m走りましたか。'},
+  {label:'4時 p.19（ペットボトル 2L → 4倍 → 2倍）', kind:3, unit:'L', q:['ペットボトル','バケツ','水そう'], a:2, ks:[4,2],
+   text:'ペットボトルには水が2Lはいります。バケツにはペットボトルの4倍、水そうにはバケツの2倍の水がはいります。水そうには水が何Lはいりますか。'},
+  {label:'4時 p.19（小・中・大の箱）', kind:3, unit:'こ', q:['小','中','大'], a:2, ks:[3,2],
+   text:'小の箱にはケーキが2こはいります。中の箱には小の箱の3倍、大の箱には中の箱の2倍はいります。大の箱にはケーキが何こはいりますか。'}
+];
+var STEPS = {
+  2:['問題','もとにする量','くらべる量','区切る','式','答え'],
+  3:['問題','1つめ','2つめ','3つめ','順に','まとめて','答え']
+};
+var LS_KEY = 'baizu.custom.v1';
+
+var custom = [];
+try { custom = JSON.parse(localStorage.getItem(LS_KEY) || '[]') || []; } catch (e) { custom = []; }
+var P = null, step = 0, view = {tape:true, rel:true};
+
+function $(id){ return document.getElementById(id); }
+function all(){ return PRESETS.concat(custom); }
+function vals(p){ return p.kind === 2 ? [p.a, p.a*p.k] : [p.a, p.a*p.ks[0], p.a*p.ks[0]*p.ks[1]]; }
+
+/* ===== 表示の段階で「□」か「値」かを決める ===== */
+function shownVal(i){
+  var v = vals(P)[i];
+  if (P.kind === 2){
+    var isUnk = (P.unk === 'a' && i === 0) || (P.unk === 'b' && i === 1);
+    return isUnk && step < 5 ? null : v;
+  }
+  if (i === 1) return step >= 4 ? v : null;          // 2つめは「順に」で分かる
+  if (i === 2) return step >= 6 ? v : null;
+  return v;
+}
+function shownK(){ return P.unk === 'k' && step < 5 ? null : P.k; }
+
+/* ===== SVG ===== */
+var NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, text){
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function label(svg, x, y, v, unit, size, anchor, cls){
+  var t = el('text', {x:x, y:y, 'font-size':size, 'text-anchor':anchor||'start', class:'tx '+(cls||'')});
+  if (v == null){ t.appendChild(el('tspan', {class:'unk'}, '□')); t.appendChild(el('tspan', {}, unit)); }
+  else { t.appendChild(el('tspan', {class: cls||''}, String(v))); t.appendChild(el('tspan', {}, unit)); }
+  svg.appendChild(t);
+  return t;
+}
+function revCls(i){ return P.kind === 2 ? ((P.unk==='a'&&i===0)||(P.unk==='b'&&i===1) ? 'rev' : '') : (i>0 ? 'rev' : ''); }
+
+function drawTape(){
+  var svg = $('tapeSvg'); svg.innerHTML = '';
+  var n = P.kind, v = vals(P), X0 = 170, W = 680, sc = W / v[n-1];
+  var rowH = n === 2 ? 95 : 75, top = n === 2 ? 40 : 22, th = 36;
+  var visible = n === 2 ? [step>=1, step>=2] : [step>=1, step>=2, step>=3];
+  if (step === 0){ svg.appendChild(el('text',{x:500,y:130,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); return; }
+  for (var i = 0; i < n; i++){
+    if (!visible[i]) continue;
+    var y = top + i*rowH, g = el('g', {class: (i === step-1) ? 'pop' : ''});
+    svg.appendChild(g);
+    g.appendChild(el('text', {x:X0-14, y:y+th/2+10, 'text-anchor':'end', 'font-size':28, class:'tx', 'font-weight':700}, P.q[i]));
+    g.appendChild(el('rect', {x:X0, y:y, width:v[i]*sc, height:th, class:'tape f'+i}));
+    var sv = shownVal(i);
+    label(g, X0 + v[i]*sc + 12, y+th/2+10, sv, P.unit, 28, 'start', sv != null && (step >= (n===2?5:4)) ? revCls(i) : '');
+  }
+  // 区切り
+  function divide(row, unitLen, count, fine, numY, delayBase){
+    var y = top + row*rowH;
+    for (var j = 1; j <= count; j++){
+      var d = (delayBase + j*0.35) + 's';
+      if (j < count) svg.appendChild(el('line', {x1:X0+j*unitLen*sc, x2:X0+j*unitLen*sc, y1:y-(fine?0:6), y2:y+th+(fine?0:6), class:'div pop'+(fine?' fine':''), style:'animation-delay:'+d}));
+      svg.appendChild(el('text', {x:X0+(j-0.5)*unitLen*sc, y: numY != null ? y+numY : y+th/2+9, 'text-anchor':'middle', 'font-size': fine?18:24, class:'cnt pop', style:'animation-delay:'+d}, String(j)));
+    }
+  }
+  if (n === 2 && step >= 3){
+    // くらべる量を「もとにする量の長さ」で区切る（2mずつ／□mずつ）
+    divide(1, v[0], P.k, false, null, step === 3 ? 0 : -99);
+    if (P.unk === 'a') for (var j = 0; j < P.k; j++){
+      var t = el('text', {x:X0+(j+0.5)*v[0]*sc, y:top+rowH+th+30, 'text-anchor':'middle','font-size':20,class:'tx pop'}, step>=5 ? String(v[0]) : '□');
+      if (step >= 5) t.setAttribute('class','tx rev'); svg.appendChild(t);
+    }
+  }
+  if (n === 3 && step >= 4){
+    divide(1, v[0], P.ks[0], false, null, step === 4 ? 0 : -99);
+    divide(2, v[1], P.ks[1], false, null, step === 4 ? 0.35*P.ks[0] : -99);
+  }
+  if (n === 3 && step >= 5){
+    var kk = P.ks[0]*P.ks[1], y2 = top + 2*rowH;
+    for (var m = 1; m <= kk; m++){
+      var dd = (step === 5 ? m*0.25 : 0) + 's';
+      if (m < kk && m % P.ks[0] !== 0) svg.appendChild(el('line',{x1:X0+m*v[0]*sc,x2:X0+m*v[0]*sc,y1:y2,y2:y2+th,class:'div fine pop',style:'animation-delay:'+dd}));
+      svg.appendChild(el('text',{x:X0+(m-0.5)*v[0]*sc,y:y2+th+24,'text-anchor':'middle','font-size':19,class:'cnt pop',style:'animation-delay:'+dd},String(m)));
+    }
+  }
+}
+
+function drawRel(){
+  var svg = $('relSvg'); svg.innerHTML = '';
+  if (step === 0){ svg.appendChild(el('text',{x:500,y:120,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); return; }
+  var n = P.kind, bw = 190, bh = 64, y = 105;
+  var xs = n === 2 ? [150, 660] : [60, 405, 750];
+  function box(i){
+    var g = el('g', {class: i === step-1 ? 'pop' : ''}); svg.appendChild(g);
+    g.appendChild(el('rect', {x:xs[i], y:y, width:bw, height:bh, rx:6, class:'tape f'+i}));
+    g.appendChild(el('text', {x:xs[i]+bw/2, y:y+bh/2+10, 'text-anchor':'middle', 'font-size':28, 'font-weight':700, class:'tx'}, P.q[i]));
+    var sv = shownVal(i);
+    label(g, xs[i]+bw/2, y+bh+38, sv, P.unit, 28, 'middle', sv != null && step >= (n===2?5:4) ? revCls(i) : '');
+  }
+  function arrow(i, k, cls, lab){
+    var x1 = xs[i]+bw+8, x2 = xs[i+1]-8, g = el('g', {class:'pop'}); svg.appendChild(g);
+    g.appendChild(el('line', {x1:x1, y1:y+bh/2, x2:x2-14, y2:y+bh/2, class:'arrow '+(cls||'')}));
+    g.appendChild(el('path', {d:'M'+(x2)+' '+(y+bh/2)+' l-18 -10 v20 z', fill:'#1A1A1A'}));
+    label(g, (x1+x2)/2, y+bh/2-14, k, '倍', 28, 'middle', lab || '');
+  }
+  box(0);
+  if (n === 2){
+    if (step >= 2){ box(1); arrow(0, shownK(), '', step>=5 && P.unk==='k' ? 'rev' : ''); }
+    return;
+  }
+  if (step >= 2){ box(1); arrow(0, P.ks[0]); }
+  if (step >= 3){ box(2); arrow(1, P.ks[1]); }
+  if (step >= 5){
+    var a = xs[0]+bw/2, b = xs[2]+bw/2, g = el('g',{class:'pop'}); svg.appendChild(g);
+    g.appendChild(el('path', {d:'M'+a+' '+(y-6)+' C'+a+' 60 '+b+' 60 '+b+' '+(y-22), class:'arrow big'}));
+    g.appendChild(el('path', {d:'M'+b+' '+(y-4)+' l-10 -20 h20 z', fill:'#0F5EA8'}));
+    var t = el('text', {x:500, y:42, 'text-anchor':'middle','font-size':28,class:'tx rev'}, (P.ks[0]*P.ks[1])+'倍（'+P.ks[0]+'×'+P.ks[1]+'）');
+    g.appendChild(t);
+  }
+}
+
+/* ===== 式 ===== */
+function eqLines(){
+  var u = P.unit, v = vals(P), L = [];
+  var B = '<span class="u">□</span>';
+  if (P.kind === 2){
+    if (step < 4) return L;
+    var a = P.a, b = v[1], k = P.k;
+    if (P.unk === 'k'){ L.push(a+' × '+B+' = '+b); if (step>=5) L.push(b+' ÷ '+a+' = '+k, '<span class="ans">答え '+k+'倍</span>'); }
+    if (P.unk === 'b'){ L.push(a+' × '+k+' = '+B); if (step>=5) L.push('<span class="ans">答え '+b+u+'</span>'); }
+    if (P.unk === 'a'){ L.push(B+' × '+k+' = '+b); if (step>=5) L.push(b+' ÷ '+k+' = '+a, '<span class="ans">答え '+a+u+'</span>'); }
+    return L;
+  }
+  var k1 = P.ks[0], k2 = P.ks[1];
+  if (step >= 4) L.push('順に：'+P.a+' × '+k1+' = '+v[1]+'　'+v[1]+' × '+k2+' = '+v[2]);
+  if (step >= 5) L.push('まとめて：'+k1+' × '+k2+' = '+(k1*k2)+'　'+P.a+' × '+(k1*k2)+' = '+v[2]);
+  if (step >= 6) L.push('<span class="ans">答え '+v[2]+u+'</span>');
+  return L;
+}
+
+function render(){
+  var S = STEPS[P.kind];
+  $('problem').textContent = P.text;
+  $('tapeSvg').hidden = !view.tape; $('relSvg').hidden = !view.rel;
+  drawTape(); drawRel();
+  $('eq').innerHTML = eqLines().map(function(s){ return '<span>'+s+'</span>'; }).join('');
+  var st = $('steps'); st.innerHTML = '';
+  S.forEach(function(name, i){
+    var b = document.createElement('button');
+    b.textContent = name; b.className = i === step ? 'cur' : (i < step ? 'done' : '');
+    b.onclick = function(){ step = i; render(); };
+    st.appendChild(b);
+  });
+  $('bPrev').disabled = step === 0;
+  $('bNext').disabled = step === S.length-1;
+}
+function go(d){ var n = STEPS[P.kind].length; step = Math.max(0, Math.min(n-1, step+d)); render(); }
+function load(i){ P = all()[i]; step = 0; render(); }
+
+function fillSel(keep){
+  var s = $('sel'); s.innerHTML = '';
+  all().forEach(function(p, i){ var o = document.createElement('option'); o.value = i; o.textContent = p.label; s.appendChild(o); });
+  s.value = keep;
+}
+
+/* ===== 問題をつくる ===== */
+function kind(){ return document.querySelector('input[name=kind]:checked').value === '3' ? 3 : 2; }
+function unk(){ return document.querySelector('input[name=unk]:checked').value; }
+function num(id){ var x = Number($(id).value); return Number.isInteger(x) && x > 0 ? x : null; }
+function readForm(){
+  var unit = $('cUnit').value.trim() || '';
+  if (kind() === 3){
+    var a = num('a3'), k1 = num('k31'), k2 = num('k32'), n = [$('m0').value.trim(), $('m1').value.trim(), $('m2').value.trim()];
+    if (!a || !k1 || !k2) return {err:'数は 1 以上の整数で 入れてください'};
+    if (k1 < 2 || k2 < 2) return {err:'倍は 2 以上に してください'};
+    if (n.some(function(x){ return !x; })) return {err:'名前を 3つとも 入れてください'};
+    return {p:{kind:3, unit:unit, q:n, a:a, ks:[k1,k2],
+      label:'自作：'+n.join('→')+'（'+a+unit+'・'+k1+'倍・'+k2+'倍）',
+      text: n[0]+'は'+a+unit+'です。'+n[1]+'は'+n[0]+'の'+k1+'倍、'+n[2]+'は'+n[1]+'の'+k2+'倍です。'+n[2]+'は何'+unit+'ですか。'}};
+  }
+  var u = unk(), n0 = $('n0').value.trim(), n1 = $('n1').value.trim();
+  if (!n0 || !n1) return {err:'名前を 2つとも 入れてください'};
+  var a = num('a2'), b = num('b2'), k = num('k2');
+  if (u === 'k'){ if (!a || !b) return {err:'数を 入れてください'}; if (b % a) return {err:b+' は '+a+' で わり切れません'}; k = b/a; }
+  if (u === 'b'){ if (!a || !k) return {err:'数を 入れてください'}; b = a*k; }
+  if (u === 'a'){ if (!b || !k) return {err:'数を 入れてください'}; if (b % k) return {err:b+' は '+k+' で わり切れません'}; a = b/k; }
+  if (k < 2) return {err:'倍は 2 以上に なるように してください'};
+  var text = u === 'k' ? n0+'は'+a+unit+'、'+n1+'は'+b+unit+'です。'+n1+'は'+n0+'の何倍ですか。'
+           : u === 'b' ? n0+'は'+a+unit+'です。'+n1+'は'+n0+'の'+k+'倍です。'+n1+'は何'+unit+'ですか。'
+           : n1+'は'+b+unit+'で、'+n0+'の'+k+'倍です。'+n0+'は何'+unit+'ですか。';
+  return {p:{kind:2, unk:u, unit:unit, q:[n0,n1], a:a, k:k, text:text,
+    label:'自作：'+n0+'・'+n1+'（'+(u==='a'?'□':a)+unit+'・'+(u==='b'?'□':b)+unit+'・'+(u==='k'?'□':k)+'倍）'}, a:a, b:b, k:k};
+}
+function syncForm(){
+  var k3 = kind() === 3;
+  $('f2').hidden = k3; $('f3').hidden = !k3;
+  document.querySelectorAll('.cu').forEach(function(s){ s.textContent = $('cUnit').value; });
+  var u = unk();
+  $('a2').disabled = u === 'a'; $('b2').disabled = u === 'b'; $('k2').disabled = u === 'k';
+  var r = readForm(), m = $('cMsg');
+  if (r.err){ m.textContent = r.err; m.className = 'err'; $('cOk').disabled = true; return; }
+  m.className = ''; $('cOk').disabled = false;
+  if (!k3){ if (u==='a') $('a2').value = r.a; if (u==='b') $('b2').value = r.b; if (u==='k') $('k2').value = r.k; }
+  m.textContent = '答え：' + (k3 ? vals(r.p)[2] + r.p.unit : u==='k' ? r.k+'倍' : u==='a' ? r.a+r.p.unit : r.b+r.p.unit);
+}
+
+/* ===== 操作 ===== */
+$('sel').onchange = function(){ load(Number(this.value)); this.blur(); };
+$('bPrev').onclick = function(){ go(-1); };
+$('bNext').onclick = function(){ go(1); };
+function toggle(key, btn){
+  view[key] = !view[key];
+  if (!view.tape && !view.rel) view[key === 'tape' ? 'rel' : 'tape'] = true;   // どちらか1つは出す
+  $('vTape').setAttribute('aria-pressed', view.tape); $('vRel').setAttribute('aria-pressed', view.rel);
+  render();
+}
+$('vTape').onclick = function(){ toggle('tape'); };
+$('vRel').onclick = function(){ toggle('rel'); };
+$('bFull').onclick = function(){
+  if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(function(){});
+};
+document.addEventListener('keydown', function(e){
+  if ($('dlg').open || e.target.tagName === 'SELECT') return;
+  if (['ArrowRight','PageDown',' ','Enter'].indexOf(e.key) >= 0){ e.preventDefault(); go(1); }   // プレゼン用リモコンは PageDown を送る
+  else if (['ArrowLeft','PageUp','Backspace'].indexOf(e.key) >= 0){ e.preventDefault(); go(-1); }
+  else if (e.key === 'f' || e.key === 'F') $('bFull').click();
+});
+$('bMake').onclick = function(){ syncForm(); $('dlg').showModal(); };
+$('cCancel').onclick = function(){ $('dlg').close(); };
+$('dlg').addEventListener('input', syncForm);
+$('cOk').onclick = function(){
+  var r = readForm(); if (r.err) return;
+  custom.push(r.p);
+  try { localStorage.setItem(LS_KEY, JSON.stringify(custom)); } catch (e) {}
+  var i = all().length - 1; fillSel(i); load(i); $('dlg').close();
+};
+
+document.documentElement.lang = 'ja';
+fillSel(0); load(0);
+</script>
+</body>
+</html>
