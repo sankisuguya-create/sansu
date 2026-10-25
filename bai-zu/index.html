@@ -70,6 +70,11 @@ footer button{min-height:56px;font-size:20px;min-width:120px}
 .axis{stroke:var(--ink);stroke-width:2.5}
 .guide{stroke:var(--ink-sub);stroke-width:1.5;stroke-dasharray:4 5}
 .ph{font-family:var(--font);fill:var(--ink-sub)}
+.mk-arr{position:relative}
+.mk-box{margin:0 .15em}
+.mk-arr.on{background:linear-gradient(var(--ink-alert),var(--ink-alert)) no-repeat left 100%/calc(100% - .35em) 4px;padding-bottom:6px;margin-right:.55em}
+.mk-arr.on::after{content:"";position:absolute;right:-.3em;bottom:-4px;border-left:.6em solid var(--ink-alert);border-top:7px solid transparent;border-bottom:7px solid transparent;animation:pop .3s both}
+.mk-box.on{outline:4px solid var(--ink-alert);outline-offset:3px;animation:pop .3s both}
 
 /* 作成ダイアログ */
 dialog{border:2px solid var(--ink);border-radius:2px;background:var(--paper);padding:18px 22px;max-width:min(720px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.25)}
@@ -102,7 +107,7 @@ dialog legend{font-weight:700;padding:0 4px}
 
 <div id="problem"><span id="pno"></span><span id="ptext"></span></div>
 <div id="stage">
-  <svg id="tapeSvg" viewBox="0 0 1000 290" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
+  <svg id="tapeSvg" viewBox="0 0 1000 310" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
   <svg id="relSvg" viewBox="0 0 1000 230" preserveAspectRatio="xMidYMid meet" aria-label="関係図"></svg>
 </div>
 <div id="eq"></div>
@@ -141,28 +146,31 @@ dialog legend{font-weight:700;padding:0 4px}
 'use strict';
 /* ===== 問題データ（単一真実源） =====
  kind 2: q=[もとにする量, くらべる量], k=倍, unk='a'|'b'|'k'
- kind 3: q=[1つめ, 2つめ, 3つめ], ks=[k1,k2], 3つめを求める。val は真の値（□でも図の長さに使う） */
+ kind 3: q=[1つめ, 2つめ, 3つめ], ks=[k1,k2], 3つめを求める。val は真の値（□でも図の長さに使う）
+ text の [ ] は赤い四角で囲む所（関係図の左の四角に入るもの）、{ } は赤い矢印の下線を引く所（「の〇倍」） */
 var PRESETS = [
   {label:'1時 導入 p.13（赤→青）', kind:2, unk:'b', unit:'m', q:['赤','青'], a:2, k:3,
-   text:'赤の車は2m走りました。青の車が走った長さは、赤の車が走った長さの3倍でした。青の車は何m走りましたか。'},
+   text:'赤の車は2m走りました。青の車が走った長さは、[赤の車が走った長さ]{の3倍}でした。青の車は何m走りましたか。'},
   {label:'1時 p.14（赤 2m・黄 12m）', kind:2, unk:'k', unit:'m', q:['赤','黄'], a:2, k:6,
-   text:'赤の車は2m、黄の車は12m走りました。黄の車が走った長さは、赤の車が走った長さの何倍ですか。'},
+   text:'赤の車は2m、黄の車は12m走りました。黄の車が走った長さは、[赤の車が走った長さ]{の何倍}ですか。'},
   {label:'1時 p.15（ふくろ 6こ・かん 30こ）', kind:2, unk:'k', unit:'こ', q:['ふくろ','かん'], a:6, k:5,
-   text:'ふくろには6こ、かんには30このあめがはいっています。かんのあめの数は、ふくろのあめの数の何倍ですか。'},
+   text:'ふくろには6こ、かんには30このあめがはいっています。かんのあめの数は、[ふくろのあめの数]{の何倍}ですか。'},
   {label:'2時 p.16（緑 □m・黄 12m）', kind:2, unk:'a', unit:'m', q:['緑','黄'], a:4, k:3,
-   text:'黄の車は12m走りました。黄の車が走った長さは、緑の車が走った長さの3倍でした。緑の車は何m走りましたか。'},
+   text:'黄の車は12m走りました。黄の車が走った長さは、[緑の車が走った長さ]{の3倍}でした。緑の車は何m走りましたか。'},
   {label:'2時 p.17（バケツ □L・水そう 48L）', kind:2, unk:'a', unit:'L', q:['バケツ','水そう'], a:6, k:8,
-   text:'水そうにはいる水は48Lで、バケツにはいる水の8倍です。バケツにはいる水は何Lですか。'},
+   text:'水そうにはいる水は48Lで、[バケツにはいる水]{の8倍}です。バケツにはいる水は何Lですか。'},
   {label:'3時 p.18（赤 4m → 3倍 → 2倍）', kind:3, unit:'m', q:['赤','青','黄'], a:4, ks:[3,2],
-   text:'赤の車は4m走りました。青の車は赤の車の3倍、黄の車は青の車の2倍走りました。黄の車は何m走りましたか。'},
+   text:'赤の車は4m走りました。青の車は[赤の車]{の3倍}、黄の車は[青の車]{の2倍}走りました。黄の車は何m走りましたか。'},
   {label:'4時 p.19（ペットボトル 2L → 4倍 → 2倍）', kind:3, unit:'L', q:['ペットボトル','バケツ','水そう'], a:2, ks:[4,2],
-   text:'ペットボトルには水が2Lはいります。バケツにはペットボトルの4倍、水そうにはバケツの2倍の水がはいります。水そうには水が何Lはいりますか。'},
+   text:'ペットボトルには水が2Lはいります。バケツには[ペットボトル]{の4倍}、水そうには[バケツ]{の2倍}の水がはいります。水そうには水が何Lはいりますか。'},
   {label:'4時 p.19（小・中・大の箱）', kind:3, unit:'こ', q:['小','中','大'], a:2, ks:[3,2],
-   text:'小の箱にはケーキが2こはいります。中の箱には小の箱の3倍、大の箱には中の箱の2倍はいります。大の箱にはケーキが何こはいりますか。'}
+   text:'小の箱にはケーキが2こはいります。中の箱には[小の箱]{の3倍}、大の箱には[中の箱]{の2倍}はいります。大の箱にはケーキが何こはいりますか。'}
 ];
+/* 段階の順（利用者の指定）：問題文 → テープ図（もと→目盛り→くらべる）→ 問題文に下線・囲み
+   → 関係図（枠→〇倍→左→右→下の数）→ 式 → 答え */
 var STEPS = {
-  2:['問題','もとにする量','くらべる量','区切る','式','答え'],
-  3:['問題','1つめ','2つめ','3つめ','順に','まとめて','答え']
+  2:['問題','もと','目盛り','くらべる','下線','囲む','枠','〇倍','左','右','数','式','答え'],
+  3:['問題','1つめ','目盛り','2つめ','3つめ','下線','囲む','枠','〇倍','左','中','右','数','順に','まとめて','答え']
 };
 var LS_KEY = 'baizu.custom.v1';
 
@@ -173,19 +181,14 @@ var P = null, step = 0, view = {tape:true, rel:true}, VIEW_KEY = 'baizu.view';
 function $(id){ return document.getElementById(id); }
 function all(){ return PRESETS.concat(custom); }
 function vals(p){ return p.kind === 2 ? [p.a, p.a*p.k] : [p.a, p.a*p.ks[0], p.a*p.ks[0]*p.ks[1]]; }
+function at(name){ var i = STEPS[P.kind].indexOf(name); return i >= 0 && step >= i; }   // その段まで来たか
+function now(name){ return STEPS[P.kind][step] === name; }                               // ちょうどその段か
 
-/* ===== 表示の段階で「□」か「値」かを決める ===== */
-function shownVal(i){
-  var v = vals(P)[i];
-  if (P.kind === 2){
-    var isUnk = (P.unk === 'a' && i === 0) || (P.unk === 'b' && i === 1);
-    return isUnk && step < 5 ? null : v;
-  }
-  if (i === 1) return step >= 4 ? v : null;          // 2つめは「順に」で分かる
-  if (i === 2) return step >= 4 ? v : null;          // 「順に」の式で求まるので同じ段で出す
-  return v;
-}
-function shownK(){ return P.unk === 'k' && step < 5 ? null : P.k; }
+/* ===== □か値か ===== */
+function isUnk(i){ return P.kind === 2 ? (P.unk === 'a' && i === 0) || (P.unk === 'b' && i === 1) : i > 0; }
+function revealed(){ return P.kind === 2 ? at('答え') : at('順に'); }   // 量が3つの時は「順に」の式で求まる
+function shownVal(i){ return isUnk(i) && !revealed() ? null : vals(P)[i]; }
+function shownK(){ return P.unk === 'k' && !at('答え') ? null : P.k; }
 
 /* ===== SVG ===== */
 var NS = 'http://www.w3.org/2000/svg';
@@ -196,104 +199,105 @@ function el(tag, attrs, text){
   return e;
 }
 function label(svg, x, y, v, unit, size, anchor, cls){
-  var t = el('text', {x:x, y:y, 'font-size':size, 'text-anchor':anchor||'start', class:'tx '+(cls||'')});
+  var t = el('text', {x:x, y:y, 'font-size':size, 'text-anchor':anchor||'start', class:'tx'});
   if (v == null){ t.appendChild(el('tspan', {class:'unk'}, '□')); t.appendChild(el('tspan', {}, unit)); }
   else { t.appendChild(el('tspan', {class: cls||''}, String(v))); t.appendChild(el('tspan', {}, unit)); }
   svg.appendChild(t);
   return t;
 }
-function revCls(i){ return P.kind === 2 ? ((P.unk==='a'&&i===0)||(P.unk==='b'&&i===1) ? 'rev' : '') : (i>0 ? 'rev' : ''); }
+function valCls(i){ return isUnk(i) ? 'rev' : ''; }
+function ph(svg, y){ svg.appendChild(el('text',{x:500,y:y,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); }
 
 function drawTape(){
   var svg = $('tapeSvg'); svg.innerHTML = '';
   var n = P.kind, v = vals(P), X0 = 140, W = 740, sc = W / v[n-1];
   var rowH = n === 2 ? 95 : 75, top = n === 2 ? 40 : 22, th = 36;
-  var visible = n === 2 ? [step>=1, step>=2] : [step>=1, step>=2, step>=3];
-  if (step === 0){ svg.appendChild(el('text',{x:500,y:130,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); return; }
+  var rowStep = n === 2 ? ['もと','くらべる'] : ['1つめ','2つめ','3つめ'];
+  var vis = rowStep.map(at);
+  if (!vis[0]){ ph(svg, 130); return; }
+  var yA = top + (n-1)*rowH + th + 48;   // 目盛りの線
+
+  // 0の縦線
+  svg.appendChild(el('line', {x1:X0, x2:X0, y1:top-10, y2:at('目盛り') ? yA+8 : top+th+10, class:'zero'}));
+
+  // テープ（くらべる量は、もとにする量の長さで区切って出す。番号はテープの中に書かない）
+  function divide(row, unitLen, count, cls, anim){
+    var y = top + row*rowH;
+    for (var j = 1; j < count; j++)
+      svg.appendChild(el('line', {x1:X0+j*unitLen*sc, x2:X0+j*unitLen*sc, y1:y, y2:y+th, class:'div '+(cls||'')+(anim?' pop':''), style: anim ? 'animation-delay:'+(0.25+j*0.3)+'s' : ''}));
+  }
   for (var i = 0; i < n; i++){
-    if (!visible[i]) continue;
-    var y = top + i*rowH, g = el('g', {class: (i === step-1) ? 'pop' : ''});
+    if (!vis[i]) continue;
+    var y = top + i*rowH, g = el('g', {class: now(rowStep[i]) ? 'pop' : ''});
     svg.appendChild(g);
     g.appendChild(el('text', {x:X0-14, y:y+th/2+10, 'text-anchor':'end', 'font-size':28, class:'tx', 'font-weight':700}, P.q[i]));
     g.appendChild(el('rect', {x:X0, y:y, width:v[i]*sc, height:th, class:'tape f'+i}));
     var sv = shownVal(i);
-    label(g, X0 + v[i]*sc + 12, y+th/2+10, sv, P.unit, 28, 'start', sv != null && (step >= (n===2?5:4)) ? revCls(i) : '');
+    label(g, X0 + v[i]*sc + 12, y+th/2+10, sv, P.unit, 28, 'start', sv != null ? valCls(i) : '');
+    if (i === 1) divide(1, v[0], n === 2 ? P.k : P.ks[0], '', now(rowStep[1]));
+    if (i === 2) divide(2, v[1], P.ks[1], '', now(rowStep[2]));
   }
-  // 0の線と下の目盛り線（数直線の役目）
-  var last = visible.lastIndexOf(true), yA = top + (n-1)*rowH + th + 48;
-  svg.appendChild(el('line', {x1:X0, x2:X0, y1:top-10, y2:yA+8, class:'zero'}));
-  svg.appendChild(el('line', {x1:X0, x2:X0+W+20, y1:yA, y2:yA, class:'axis'}));
-  svg.appendChild(el('text', {x:X0, y:yA+32, 'text-anchor':'middle', 'font-size':24, class:'tx'}, '0'));
-  // 目盛り：もとにする量（1つめ）の長さごと。区切る前に出すと答えが見えるので区切りの段から
-  if (step >= (n === 2 ? 3 : 5)){
+  if (n === 3 && at('まとめて')) divide(2, v[0], P.ks[0]*P.ks[1], 'fine', now('まとめて'));
+
+  // 目盛りの線と数（目盛りの上に 0(倍), 1, 2, …）
+  if (at('目盛り')){
+    var g2 = el('g', {class: now('目盛り') ? 'pop' : ''}); svg.appendChild(g2);
     var cnt = Math.round(v[n-1] / v[0]);
-    for (var t = 1; t <= cnt; t++) svg.appendChild(el('line', {x1:X0+t*v[0]*sc, x2:X0+t*v[0]*sc, y1:yA-8, y2:yA+8, class:'axis pop', style:'animation-delay:'+(t*0.1)+'s'}));
-  }
-  // 各テープの右はしから目盛り線へ点線
-  for (var r = 0; r <= last; r++) if (visible[r])
-    svg.appendChild(el('line', {x1:X0+v[r]*sc, x2:X0+v[r]*sc, y1:top+r*rowH+th, y2:yA, class:'guide'}));
-  // 区切り
-  function divide(row, unitLen, count, fine, numY, delayBase){
-    var y = top + row*rowH;
-    for (var j = 1; j <= count; j++){
-      var d = (delayBase + j*0.35) + 's';
-      if (j < count) svg.appendChild(el('line', {x1:X0+j*unitLen*sc, x2:X0+j*unitLen*sc, y1:y-(fine?0:6), y2:y+th+(fine?0:6), class:'div pop'+(fine?' fine':''), style:'animation-delay:'+d}));
-      svg.appendChild(el('text', {x:X0+(j-0.5)*unitLen*sc, y: numY != null ? y+numY : y+th/2+9, 'text-anchor':'middle', 'font-size': fine?18:24, class:'cnt pop', style:'animation-delay:'+d}, String(j)));
+    g2.appendChild(el('line', {x1:X0, x2:X0+W+20, y1:yA, y2:yA, class:'axis'}));
+    var z = el('text', {x:X0, y:yA+34, 'text-anchor':'middle', 'font-size':24, class:'tx'});
+    z.appendChild(el('tspan', {}, '0')); z.appendChild(el('tspan', {'font-size':18, dx:2}, '(倍)'));
+    g2.appendChild(z);
+    for (var t = 1; t <= cnt; t++){
+      var x = X0 + t*v[0]*sc, d = now('目盛り') ? 'animation-delay:'+(t*0.25)+'s' : '';
+      g2.appendChild(el('line', {x1:x, x2:x, y1:yA-9, y2:yA+9, class:'axis pop', style:d}));
+      g2.appendChild(el('text', {x:x, y:yA+34, 'text-anchor':'middle', 'font-size':24, class:'tx pop', style:d}, String(t)));
     }
-  }
-  if (n === 2 && step >= 3){
-    // くらべる量を「もとにする量の長さ」で区切る（2mずつ／□mずつ）
-    divide(1, v[0], P.k, false, null, step === 3 ? 0 : -99);
-    if (P.unk === 'a') for (var j = 0; j < P.k; j++){
-      var t = el('text', {x:X0+(j+0.5)*v[0]*sc, y:top+rowH+th+30, 'text-anchor':'middle','font-size':20,class:'tx pop'}, step>=5 ? String(v[0]) : '□');
-      if (step >= 5) t.setAttribute('class','tx rev'); svg.appendChild(t);
-    }
-  }
-  if (n === 3 && step >= 4){
-    divide(1, v[0], P.ks[0], false, null, step === 4 ? 0 : -99);
-    divide(2, v[1], P.ks[1], false, null, step === 4 ? 0.35*P.ks[0] : -99);
-  }
-  if (n === 3 && step >= 5){
-    var kk = P.ks[0]*P.ks[1], y2 = top + 2*rowH;
-    for (var m = 1; m <= kk; m++){
-      var dd = (step === 5 ? m*0.25 : 0) + 's';
-      if (m < kk && m % P.ks[0] !== 0) svg.appendChild(el('line',{x1:X0+m*v[0]*sc,x2:X0+m*v[0]*sc,y1:y2,y2:y2+th,class:'div fine pop',style:'animation-delay:'+dd}));
-      svg.appendChild(el('text',{x:X0+(m-0.5)*v[0]*sc,y:yA+32,'text-anchor':'middle','font-size':19,class:'cnt pop',style:'animation-delay:'+dd},String(m)));
-    }
+    // 各テープの右はしから目盛りの線へ点線
+    for (var r = 0; r < n; r++) if (vis[r])
+      svg.appendChild(el('line', {x1:X0+v[r]*sc, x2:X0+v[r]*sc, y1:top+r*rowH+th, y2:yA, class:'guide'}));
   }
 }
 
 function drawRel(){
   var svg = $('relSvg'); svg.innerHTML = '';
-  if (step === 0){ svg.appendChild(el('text',{x:500,y:120,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); return; }
+  if (!at('枠')){ ph(svg, 120); return; }
   var n = P.kind, bw = 190, bh = 64, y = 105;
   var xs = n === 2 ? [150, 660] : [60, 405, 750];
-  function box(i){
-    var g = el('g', {class: i === step-1 ? 'pop' : ''}); svg.appendChild(g);
-    g.appendChild(el('rect', {x:xs[i], y:y, width:bw, height:bh, rx:6, class:'tape f'+i}));
-    g.appendChild(el('text', {x:xs[i]+bw/2, y:y+bh/2+10, 'text-anchor':'middle', 'font-size':28, 'font-weight':700, class:'tx'}, P.q[i]));
-    var sv = shownVal(i);
-    label(g, xs[i]+bw/2, y+bh+38, sv, P.unit, 28, 'middle', sv != null && step >= (n===2?5:4) ? revCls(i) : '');
+  var nameStep = n === 2 ? ['左','右'] : ['左','中','右'];
+  for (var i = 0; i < n; i++){
+    var g = el('g', {}); svg.appendChild(g);
+    g.appendChild(el('rect', {x:xs[i], y:y, width:bw, height:bh, rx:6, class:'tape '+(at(nameStep[i]) ? 'f'+i : 'f2')}));
+    if (at(nameStep[i])) g.appendChild(el('text', {x:xs[i]+bw/2, y:y+bh/2+10, 'text-anchor':'middle', 'font-size':28, 'font-weight':700, class:'tx'+(now(nameStep[i])?' pop':'')}, P.q[i]));
+    if (at('数')){ var sv = shownVal(i); var t = label(g, xs[i]+bw/2, y+bh+38, sv, P.unit, 28, 'middle', sv != null ? valCls(i) : ''); if (now('数')) t.setAttribute('class','tx pop'); }
   }
-  function arrow(i, k, cls, lab){
-    var x1 = xs[i]+bw+8, x2 = xs[i+1]-8, g = el('g', {class:'pop'}); svg.appendChild(g);
-    g.appendChild(el('line', {x1:x1, y1:y+bh/2, x2:x2-14, y2:y+bh/2, class:'arrow '+(cls||'')}));
-    g.appendChild(el('path', {d:'M'+(x2)+' '+(y+bh/2)+' l-18 -10 v20 z', fill:'#1A1A1A'}));
-    label(g, (x1+x2)/2, y+bh/2-14, k, '倍', 28, 'middle', lab || '');
+  for (var a = 0; a < n-1; a++){
+    var x1 = xs[a]+bw+8, x2 = xs[a+1]-8, ga = el('g', {}); svg.appendChild(ga);
+    ga.appendChild(el('line', {x1:x1, y1:y+bh/2, x2:x2-14, y2:y+bh/2, class:'arrow'}));
+    ga.appendChild(el('path', {d:'M'+x2+' '+(y+bh/2)+' l-18 -10 v20 z', fill:'#1A1A1A'}));
+    if (at('〇倍')){
+      var k = n === 2 ? shownK() : P.ks[a];
+      var t2 = label(ga, (x1+x2)/2, y+bh/2-14, k, '倍', 28, 'middle', n === 2 && P.unk === 'k' && k != null ? 'rev' : '');
+      if (now('〇倍')) t2.setAttribute('class','tx pop');
+    }
   }
-  box(0);
-  if (n === 2){
-    if (step >= 2){ box(1); arrow(0, shownK(), '', step>=5 && P.unk==='k' ? 'rev' : ''); }
-    return;
+  if (n === 3 && at('まとめて')){
+    var p = xs[0]+bw/2, q = xs[2]+bw/2, gm = el('g',{class:'pop'}); svg.appendChild(gm);
+    gm.appendChild(el('path', {d:'M'+p+' '+(y-6)+' C'+p+' 60 '+q+' 60 '+q+' '+(y-22), class:'arrow big'}));
+    gm.appendChild(el('path', {d:'M'+q+' '+(y-4)+' l-10 -20 h20 z', fill:'#0F5EA8'}));
+    gm.appendChild(el('text', {x:500, y:42, 'text-anchor':'middle','font-size':28,class:'tx rev'}, (P.ks[0]*P.ks[1])+'倍（'+P.ks[0]+'×'+P.ks[1]+'）'));
   }
-  if (step >= 2){ box(1); arrow(0, P.ks[0]); }
-  if (step >= 3){ box(2); arrow(1, P.ks[1]); }
-  if (step >= 5){
-    var a = xs[0]+bw/2, b = xs[2]+bw/2, g = el('g',{class:'pop'}); svg.appendChild(g);
-    g.appendChild(el('path', {d:'M'+a+' '+(y-6)+' C'+a+' 60 '+b+' 60 '+b+' '+(y-22), class:'arrow big'}));
-    g.appendChild(el('path', {d:'M'+b+' '+(y-4)+' l-10 -20 h20 z', fill:'#0F5EA8'}));
-    var t = el('text', {x:500, y:42, 'text-anchor':'middle','font-size':28,class:'tx rev'}, (P.ks[0]*P.ks[1])+'倍（'+P.ks[0]+'×'+P.ks[1]+'）');
-    g.appendChild(t);
+}
+
+/* ===== 問題文（[ ] と { } に印をつける） ===== */
+function drawProblem(){
+  var box = $('ptext'); box.innerHTML = '';
+  var re = /\[([^\]]+)\]|\{([^}]+)\}|[^\[{]+/g, m;
+  while ((m = re.exec(P.text))){
+    var s = document.createElement('span');
+    if (m[1] != null){ s.textContent = m[1]; s.className = 'mk-box' + (at('囲む') ? ' on' : ''); }
+    else if (m[2] != null){ s.textContent = m[2]; s.className = 'mk-arr' + (at('下線') ? ' on' : ''); }
+    else s.textContent = m[0];
+    box.appendChild(s);
   }
 }
 
@@ -302,23 +306,24 @@ function eqLines(){
   var u = P.unit, v = vals(P), L = [];
   var B = '<span class="u">□</span>';
   if (P.kind === 2){
-    if (step < 4) return L;
-    var a = P.a, b = v[1], k = P.k;
-    if (P.unk === 'k'){ L.push(a+' × '+B+' = '+b); if (step>=5) L.push(b+' ÷ '+a+' = '+k, '<span class="ans">答え '+k+'倍</span>'); }
-    if (P.unk === 'b'){ L.push(a+' × '+k+' = '+B); if (step>=5) L.push('<span class="ans">答え '+b+u+'</span>'); }
-    if (P.unk === 'a'){ L.push(B+' × '+k+' = '+b); if (step>=5) L.push(b+' ÷ '+k+' = '+a, '<span class="ans">答え '+a+u+'</span>'); }
+    if (!at('式')) return L;
+    var a = P.a, b = v[1], k = P.k, ans = at('答え');
+    if (P.unk === 'k'){ L.push(a+' × '+B+' = '+b); if (ans) L.push(b+' ÷ '+a+' = '+k, '<span class="ans">答え '+k+'倍</span>'); }
+    if (P.unk === 'b'){ L.push(a+' × '+k+' = '+B); if (ans) L.push('<span class="ans">答え '+b+u+'</span>'); }
+    if (P.unk === 'a'){ L.push(B+' × '+k+' = '+b); if (ans) L.push(b+' ÷ '+k+' = '+a, '<span class="ans">答え '+a+u+'</span>'); }
     return L;
   }
   var k1 = P.ks[0], k2 = P.ks[1];
-  if (step >= 4) L.push('順に：'+P.a+' × '+k1+' = '+v[1]+'　'+v[1]+' × '+k2+' = '+v[2]);
-  if (step >= 5) L.push('まとめて：'+k1+' × '+k2+' = '+(k1*k2)+'　'+P.a+' × '+(k1*k2)+' = '+v[2]);
-  if (step >= 6) L.push('<span class="ans">答え '+v[2]+u+'</span>');
+  if (at('順に')) L.push('順に：'+P.a+' × '+k1+' = '+v[1]+'　'+v[1]+' × '+k2+' = '+v[2]);
+  if (at('まとめて')) L.push('まとめて：'+k1+' × '+k2+' = '+(k1*k2)+'　'+P.a+' × '+(k1*k2)+' = '+v[2]);
+  if (at('答え')) L.push('<span class="ans">答え '+v[2]+u+'</span>');
   return L;
 }
 
 function render(){
   var S = STEPS[P.kind];
-  var m = /p\.\d+/.exec(P.label); $('pno').textContent = P.custom || !m ? '自作' : m[0]; $('ptext').textContent = P.text;
+  var m = /p\.\d+/.exec(P.label); $('pno').textContent = P.custom || !m ? '自作' : m[0];
+  drawProblem();
   $('tapeSvg').style.display = view.tape ? '' : 'none'; $('relSvg').style.display = view.rel ? '' : 'none';   // SVG要素には hidden プロパティが無い
   drawTape(); drawRel();
   $('eq').innerHTML = eqLines().map(function(s){ return '<span>'+s+'</span>'; }).join('');
@@ -340,7 +345,6 @@ function fillSel(keep){
   all().forEach(function(p, i){ var o = document.createElement('option'); o.value = i; o.textContent = p.label; s.appendChild(o); });
   s.value = keep;
 }
-
 /* ===== 問題をつくる ===== */
 function kind(){ return document.querySelector('input[name=kind]:checked').value === '3' ? 3 : 2; }
 function unk(){ return document.querySelector('input[name=unk]:checked').value; }
@@ -354,7 +358,7 @@ function readForm(){
     if (n.some(function(x){ return !x; })) return {err:'名前を 3つとも 入れてください'};
     return {p:{kind:3, unit:unit, q:n, a:a, ks:[k1,k2],
       label:'自作：'+n.join('→')+'（'+a+unit+'・'+k1+'倍・'+k2+'倍）',
-      text: n[0]+'は'+a+unit+'です。'+n[1]+'は'+n[0]+'の'+k1+'倍、'+n[2]+'は'+n[1]+'の'+k2+'倍です。'+n[2]+'は何'+unit+'ですか。'}};
+      text: n[0]+'は'+a+unit+'です。'+n[1]+'は['+n[0]+']{の'+k1+'倍}、'+n[2]+'は['+n[1]+']{の'+k2+'倍}です。'+n[2]+'は何'+unit+'ですか。'}};
   }
   var u = unk(), n0 = $('n0').value.trim(), n1 = $('n1').value.trim();
   if (!n0 || !n1) return {err:'名前を 2つとも 入れてください'};
@@ -363,9 +367,9 @@ function readForm(){
   if (u === 'b'){ if (!a || !k) return {err:'数を 入れてください'}; b = a*k; }
   if (u === 'a'){ if (!b || !k) return {err:'数を 入れてください'}; if (b % k) return {err:b+' は '+k+' で わり切れません'}; a = b/k; }
   if (k < 2) return {err:'倍は 2 以上に なるように してください'};
-  var text = u === 'k' ? n0+'は'+a+unit+'、'+n1+'は'+b+unit+'です。'+n1+'は'+n0+'の何倍ですか。'
-           : u === 'b' ? n0+'は'+a+unit+'です。'+n1+'は'+n0+'の'+k+'倍です。'+n1+'は何'+unit+'ですか。'
-           : n1+'は'+b+unit+'で、'+n0+'の'+k+'倍です。'+n0+'は何'+unit+'ですか。';
+  var text = u === 'k' ? n0+'は'+a+unit+'、'+n1+'は'+b+unit+'です。'+n1+'は['+n0+']{の何倍}ですか。'
+           : u === 'b' ? n0+'は'+a+unit+'です。'+n1+'は['+n0+']{の'+k+'倍}です。'+n1+'は何'+unit+'ですか。'
+           : n1+'は'+b+unit+'で、['+n0+']{の'+k+'倍}です。'+n0+'は何'+unit+'ですか。';
   return {p:{kind:2, unk:u, unit:unit, q:[n0,n1], a:a, k:k, text:text,
     label:'自作：'+n0+'・'+n1+'（'+(u==='a'?'□':a)+unit+'・'+(u==='b'?'□':b)+unit+'・'+(u==='k'?'□':k)+'倍）'}, a:a, b:b, k:k};
 }
