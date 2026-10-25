@@ -6,49 +6,56 @@
 <title>何倍でしょう 図</title>
 <style>
 :root{
-  --ink:#1A1A1A;--ink-sub:#616870;--ink-link:#0F5EA8;--ink-alert:#C0330A;
-  --fill-a:#D7E8F8;--fill-b:#FBE3B4;--solid-on:#0F5EA8;
-  --line:#d5dbe3;--bg:#f4f6f8;
+  /* 教科書の紙面ふう。値は color-coding の check-palette.mjs で検査済み（背景 #FAF8F3）
+     本文16.4・青6.2・補助7.7（塗りの上でも5.9以上）・塗りは背景比1.3、2色覚でも見分け可 */
+  --ink:#1A1A1A;--ink-sub:#4A5058;--ink-link:#0F5EA8;--ink-alert:#C0330A;
+  --fill-a:#C9DFF4;--fill-b:#F8D99A;--paper:#FAF8F3;
+  --line:#B9B2A0;--bg:var(--paper);
   --font:"BIZ UDPGothic","Yu Gothic UI","Yu Gothic","Meiryo","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","IPAexGothic","IPAGothic",sans-serif;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 button,select,input{font:inherit;color:inherit}
-button{cursor:pointer;border:1px solid #c3ccd7;background:#fff;border-radius:10px;min-height:44px;padding:4px 14px;touch-action:manipulation}
-button:hover{background:#f3f6f9}
+button{cursor:pointer;border:1.5px solid var(--ink-sub);background:var(--paper);border-radius:2px;min-height:44px;padding:4px 14px;touch-action:manipulation}
+button:hover{background:#EFEBE0}
 button:disabled{opacity:.35;cursor:not-allowed}
-button.primary{background:var(--solid-on);border-color:var(--solid-on);color:#fff;font-weight:700}
-button.primary:hover{background:#0c4f8d}
-button[aria-pressed="true"]{background:var(--fill-a);border:2px solid var(--ink-link);font-weight:700}
+button.primary{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
+button.primary:hover{background:#333}
+button[aria-pressed="true"]{font-weight:700;box-shadow:inset 0 -4px 0 var(--ink)}
 
-header{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header{flex:none;display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--paper);border-bottom:2px solid var(--ink);flex-wrap:wrap}
 header h1{font-size:18px;margin:0 6px 0 2px;white-space:nowrap}
-header select{min-height:44px;font-size:17px;border:1px solid #c3ccd7;border-radius:10px;padding:0 8px;max-width:46vw;background:#fff}
+header select{min-height:44px;font-size:17px;border:1.5px solid var(--ink-sub);border-radius:2px;padding:0 8px;max-width:46vw;background:var(--paper)}
 header .sp{flex:1}
 .seg{display:inline-flex}
 .seg button{border-radius:0;margin-left:-1px}
-.seg button:first-child{border-radius:10px 0 0 10px}
-.seg button:last-child{border-radius:0 10px 10px 0}
 
-#problem{flex:none;font-size:clamp(20px,2.6vw,34px);line-height:1.55;padding:10px 24px 4px;font-weight:700}
-#stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:4px 16px}
-#stage svg{flex:1;min-height:0;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px}
+
+#problem{flex:none;font-size:clamp(20px,2.6vw,34px);line-height:1.55;padding:12px 24px 4px;font-weight:500;display:flex;gap:.5em;align-items:flex-start}
+#pno{flex:none;background:var(--ink);color:var(--paper);font-weight:700;font-size:.7em;padding:.1em .45em;margin-top:.3em;line-height:1.4;white-space:nowrap}
+#stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 24px}
+#stage svg{flex:1;min-height:0;width:100%;background:transparent}
+#tapeSvg+#relSvg{border-top:1px solid var(--line)}
 #stage svg[hidden]{display:none}
 #eq{flex:none;min-height:1.6em;font-size:clamp(22px,3vw,40px);font-weight:700;padding:2px 24px;display:flex;gap:1.4em;flex-wrap:wrap}
 #eq .ans{color:var(--ink-link)}
 .u{color:var(--ink-link)}
 
-footer{flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-top:1px solid var(--line)}
+footer{flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--paper)}
 footer button{min-height:56px;font-size:20px;min-width:120px}
-#steps{flex:1;display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
-#steps button{min-width:0;min-height:40px;font-size:15px;padding:2px 10px;border-radius:20px;color:var(--ink-sub)}
-#steps button.done{color:var(--ink);border-color:#8a96a5}
-#steps button.cur{background:var(--fill-a);border:2px solid var(--ink-link);color:var(--ink);font-weight:700}
+/* 段階：1本の線の上の点。済＝黒丸、いま＝大きな黒丸＋太字、まだ＝白丸 */
+#steps{flex:1;display:flex;justify-content:center;align-items:center;background:linear-gradient(var(--ink-sub),var(--ink-sub)) no-repeat center 14px/70% 2px}
+#steps button{min-width:0;min-height:48px;font-size:16px;padding:22px 14px 2px;border:none;background:none;position:relative;color:var(--ink-sub)}
+#steps button::before{content:"";position:absolute;top:7px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;border:2px solid var(--ink-sub);background:var(--paper)}
+#steps button.done{color:var(--ink)}
+#steps button.done::before{background:var(--ink);border-color:var(--ink)}
+#steps button.cur{color:var(--ink);font-weight:700}
+#steps button.cur::before{background:var(--ink);border-color:var(--ink);width:20px;height:20px;margin-left:-10px;top:4px}
 
 /* SVG */
 .tape{stroke:var(--ink);stroke-width:2.5}
-.f0{fill:var(--fill-a)} .f1{fill:var(--fill-b)} .f2{fill:#fff}
+.f0{fill:var(--fill-a)} .f1{fill:var(--fill-b)} .f2{fill:#fff}  /* 3つめは白：背景と近いので太い枠で区別 */
 .tx{font-family:var(--font);fill:var(--ink)}
 .unk{fill:var(--ink-link);font-weight:700}
 .rev{fill:var(--ink-link);font-weight:700}
@@ -62,10 +69,10 @@ footer button{min-height:56px;font-size:20px;min-width:120px}
 .zero{stroke:var(--ink);stroke-width:3}
 .axis{stroke:var(--ink);stroke-width:2.5}
 .guide{stroke:var(--ink-sub);stroke-width:1.5;stroke-dasharray:4 5}
-.ph{font-family:var(--font);fill:#9aa3ad}
+.ph{font-family:var(--font);fill:var(--ink-sub)}
 
 /* 作成ダイアログ */
-dialog{border:none;border-radius:14px;padding:18px 22px;max-width:min(720px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+dialog{border:2px solid var(--ink);border-radius:2px;background:var(--paper);padding:18px 22px;max-width:min(720px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.25)}
 dialog h2{margin:0 0 10px;font-size:20px}
 dialog fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:8px 12px}
 dialog legend{font-weight:700;padding:0 4px}
@@ -93,7 +100,7 @@ dialog legend{font-weight:700;padding:0 4px}
   <button id="bFull">全画面</button>
 </header>
 
-<div id="problem"></div>
+<div id="problem"><span id="pno"></span><span id="ptext"></span></div>
 <div id="stage">
   <svg id="tapeSvg" viewBox="0 0 1000 290" preserveAspectRatio="xMidYMid meet" aria-label="テープ図"></svg>
   <svg id="relSvg" viewBox="0 0 1000 230" preserveAspectRatio="xMidYMid meet" aria-label="関係図"></svg>
@@ -199,7 +206,7 @@ function revCls(i){ return P.kind === 2 ? ((P.unk==='a'&&i===0)||(P.unk==='b'&&i
 
 function drawTape(){
   var svg = $('tapeSvg'); svg.innerHTML = '';
-  var n = P.kind, v = vals(P), X0 = 170, W = 680, sc = W / v[n-1];
+  var n = P.kind, v = vals(P), X0 = 140, W = 740, sc = W / v[n-1];
   var rowH = n === 2 ? 95 : 75, top = n === 2 ? 40 : 22, th = 36;
   var visible = n === 2 ? [step>=1, step>=2] : [step>=1, step>=2, step>=3];
   if (step === 0){ svg.appendChild(el('text',{x:500,y:130,'text-anchor':'middle','font-size':26,class:'ph'},'「つぎへ」で 図が 出ます')); return; }
@@ -311,7 +318,7 @@ function eqLines(){
 
 function render(){
   var S = STEPS[P.kind];
-  $('problem').textContent = P.text;
+  var m = /p\.\d+/.exec(P.label); $('pno').textContent = P.custom || !m ? '自作' : m[0]; $('ptext').textContent = P.text;
   $('tapeSvg').style.display = view.tape ? '' : 'none'; $('relSvg').style.display = view.rel ? '' : 'none';   // SVG要素には hidden プロパティが無い
   drawTape(); drawRel();
   $('eq').innerHTML = eqLines().map(function(s){ return '<span>'+s+'</span>'; }).join('');
@@ -401,7 +408,7 @@ $('cCancel').onclick = function(){ $('dlg').close(); };
 $('dlg').addEventListener('input', syncForm);
 $('cOk').onclick = function(){
   var r = readForm(); if (r.err) return;
-  custom.push(r.p);
+  r.p.custom = true; custom.push(r.p);
   try { localStorage.setItem(LS_KEY, JSON.stringify(custom)); } catch (e) {}
   var i = all().length - 1; fillSel(i); load(i); $('dlg').close();
 };
