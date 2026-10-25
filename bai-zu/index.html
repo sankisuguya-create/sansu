@@ -32,13 +32,13 @@ header .sp{flex:1}
 .seg button{border-radius:0;margin-left:-1px}
 
 
-#problem{flex:none;font-size:clamp(20px,2.6vw,34px);line-height:1.55;padding:12px 24px 4px;font-weight:500;display:flex;gap:.5em;align-items:flex-start}
+#problem{flex:none;font-size:calc(clamp(20px,2.6vw,34px) * var(--fs,1));line-height:1.55;padding:12px 24px 4px;font-weight:500;display:flex;gap:.5em;align-items:flex-start}
 #pno{flex:none;background:var(--ink);color:var(--paper);font-weight:700;font-size:.7em;padding:.1em .45em;margin-top:.3em;line-height:1.4;white-space:nowrap}
 #stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 24px}
 #stage svg{flex:1;min-height:0;width:100%;background:transparent}
 #tapeSvg+#relSvg{border-top:1px solid var(--line)}
 #stage svg[hidden]{display:none}
-#eq{flex:none;min-height:1.6em;font-size:clamp(22px,3vw,40px);font-weight:700;padding:2px 24px;display:flex;gap:1.4em;flex-wrap:wrap}
+#eq{flex:none;min-height:1.6em;font-size:calc(clamp(22px,3vw,40px) * var(--fs,1));font-weight:700;padding:2px 24px;display:flex;gap:1.4em;flex-wrap:wrap}
 #eq .ans{color:var(--ink-link)}
 .u{color:var(--ink-link)}
 
@@ -70,8 +70,8 @@ footer button{min-height:56px;font-size:20px;min-width:120px}
 .axis{stroke:var(--ink);stroke-width:2.5}
 .guide{stroke:var(--ink-sub);stroke-width:1.5;stroke-dasharray:4 5}
 .ph{font-family:var(--font);fill:var(--ink-sub)}
-.mk-arr{position:relative}
-.mk-box{margin:0 .15em}
+.mk-arr{position:relative;white-space:nowrap}   /* 行をまたぐと矢印の先が別の行に飛ぶ */
+.mk-box{margin:0 .15em;white-space:nowrap}
 .mk-arr.on{background:linear-gradient(var(--ink-alert),var(--ink-alert)) no-repeat left 100%/calc(100% - .35em) 4px;padding-bottom:6px;margin-right:.55em}
 .mk-arr.on::after{content:"";position:absolute;right:-.3em;bottom:-4px;border-left:.6em solid var(--ink-alert);border-top:7px solid transparent;border-bottom:7px solid transparent;animation:pop .3s both}
 .mk-box.on{outline:4px solid var(--ink-alert);outline-offset:3px;animation:pop .3s both}
@@ -93,13 +93,54 @@ dialog legend{font-weight:700;padding:0 4px}
 :fullscreen header,:fullscreen footer{display:none}   /* 児童に見せる時は操作部分を消す。進めるのはキー・リモコン・画面タップ */
 :fullscreen #problem{padding-top:28px}
 :fullscreen #eq{padding-bottom:20px}
+
+/* 画面の切り替え：メニュー／図／設定 */
+.screen{flex:1;min-height:0;display:flex;flex-direction:column}
+.screen[hidden]{display:none}
+.page{flex:1;overflow:auto;padding:16px 24px 32px}
+.page h2{font-size:20px;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--ink)}
+.page h2:first-child{margin-top:4px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.card{display:flex;gap:12px;align-items:flex-start;text-align:left;padding:12px 14px;min-height:88px;border:1.5px solid var(--ink-sub);background:#fff;width:100%}
+.card:hover{background:#F3EFE4}
+.card .no{flex:none;background:var(--ink);color:var(--paper);font-weight:700;padding:.05em .4em;font-size:15px}
+.card .t{font-weight:700;font-size:17px}
+.card .s{font-size:14px;color:var(--ink-sub);margin-top:4px;line-height:1.5}
+.cwrap{display:flex;gap:6px}
+.cwrap .card{flex:1}
+button.del{color:var(--ink-alert);border-color:var(--ink-alert);flex:none;align-self:stretch}
+.empty{color:var(--ink-sub)}
+.mbar{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.mbar button{min-height:56px;font-size:18px;padding:4px 20px}
+.opts{display:flex;gap:0;flex-wrap:wrap}
+.opts button{border-radius:0;margin-left:-1.5px;min-height:56px;font-size:18px;padding:4px 20px}
+#fsSample{margin-top:14px;border:1px solid var(--line);background:#fff;padding:12px 18px;font-size:calc(clamp(20px,2.6vw,34px) * var(--fs,1));line-height:1.55}
 </style>
 </head>
 <body>
+<section id="menu" class="screen">
+  <header><h1>何倍でしょう 図</h1><span class="sp"></span><button id="mSet">設定</button></header>
+  <div class="page">
+    <h2>教科書の問題</h2>
+    <div class="cards" id="mPre"></div>
+    <h2>自作の問題</h2>
+    <div class="cards" id="mCus"></div>
+    <div class="mbar"><button id="mMake" class="primary">＋ 問題をつくる</button></div>
+  </div>
+</section>
+
+<section id="settings" class="screen" hidden>
+  <header><button id="sBack">◀ もどる</button><h1>設定</h1></header>
+  <div class="page">
+    <h2>文字の大きさ（問題文・式・図）</h2>
+    <div class="opts" id="fsOpts" role="group" aria-label="文字の大きさ"></div>
+    <div id="fsSample">黄の車が走った長さは、赤の車が走った長さの何倍ですか。<br>2 × □ = 12</div>
+  </div>
+</section>
+
+<section id="viewer" class="screen" hidden>
 <header>
-  <h1>何倍でしょう 図</h1>
-  <select id="sel" aria-label="問題"></select>
-  <button id="bMake">問題をつくる</button>
+  <button id="bMenu">◀ メニュー</button>
   <span class="sp"></span>
   <span class="seg" role="group" aria-label="表示">
     <button data-v="both" aria-pressed="true">両方</button><button data-v="tape" aria-pressed="false">テープ図だけ</button><button data-v="rel" aria-pressed="false">関係図だけ</button>
@@ -118,6 +159,7 @@ dialog legend{font-weight:700;padding:0 4px}
   <div id="steps"></div>
   <button id="bNext" class="primary">つぎへ ▶</button>
 </footer>
+</section>
 
 <dialog id="dlg">
   <h2>問題をつくる</h2>
@@ -196,10 +238,12 @@ function shownK(){ return P.unk === 'k' && !at('答え') ? null : P.k; }
 var NS = 'http://www.w3.org/2000/svg';
 function el(tag, attrs, text){
   var e = document.createElementNS(NS, tag);
-  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  for (var k in attrs) e.setAttribute(k, k === 'font-size' ? Math.round(attrs[k]*svgF) : attrs[k]);   // 設定の文字の大きさ
   if (text != null) e.textContent = text;
   return e;
 }
+var FS = [{k:'s',name:'小さい',f:0.85,svg:0.9},{k:'m',name:'ふつう',f:1,svg:1},{k:'l',name:'大きい',f:1.2,svg:1.12},{k:'xl',name:'とても大きい',f:1.4,svg:1.25}];
+var FS_KEY = 'baizu.fs', svgF = 1;
 function label(svg, x, y, v, unit, size, anchor, cls){
   var t = el('text', {x:x, y:y, 'font-size':size, 'text-anchor':anchor||'start', class:'tx'});
   if (v == null){ t.appendChild(el('tspan', {class:'unk'}, '□')); t.appendChild(el('tspan', {}, unit)); }
@@ -269,7 +313,11 @@ function drawRel(){
   for (var i = 0; i < n; i++){
     var g = el('g', {}); svg.appendChild(g);
     g.appendChild(el('rect', {x:xs[i], y:y, width:bw, height:bh, rx:6, class:'tape '+(at(nameStep[i]) ? 'f'+i : 'f2')}));
-    if (at(nameStep[i])) g.appendChild(el('text', {x:xs[i]+bw/2, y:y+bh/2+10, 'text-anchor':'middle', 'font-size':28, 'font-weight':700, class:'tx'+(now(nameStep[i])?' pop':'')}, P.q[i]));
+    if (at(nameStep[i])){
+      var nm = el('text', {x:xs[i]+bw/2, y:y+bh/2+10, 'text-anchor':'middle', 'font-size':28, 'font-weight':700, class:'tx'+(now(nameStep[i])?' pop':'')}, P.q[i]);
+      if (P.q[i].length * 28 * svgF > bw - 16){ nm.setAttribute('textLength', bw - 16); nm.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }   // 長い名前は四角に収める
+      g.appendChild(nm);
+    }
     if (at('数')){ var sv = shownVal(i); var t = label(g, xs[i]+bw/2, y+bh+38, sv, P.unit, 28, 'middle', sv != null ? valCls(i) : ''); if (now('数')) t.setAttribute('class','tx pop'); }
   }
   for (var a = 0; a < n-1; a++){
@@ -340,13 +388,49 @@ function render(){
   $('bNext').disabled = step === S.length-1;
 }
 function go(d){ var n = STEPS[P.kind].length; step = Math.max(0, Math.min(n-1, step+d)); render(); }
-function load(i){ P = all()[i]; step = 0; render(); }
+function load(i){ P = all()[i]; step = 0; show('viewer'); render(); }
 
-function fillSel(keep){
-  var s = $('sel'); s.innerHTML = '';
-  all().forEach(function(p, i){ var o = document.createElement('option'); o.value = i; o.textContent = p.label; s.appendChild(o); });
-  s.value = keep;
+/* ===== 画面（メニュー／図／設定） ===== */
+function show(id){ ['menu','viewer','settings'].forEach(function(k){ $(k).hidden = k !== id; }); if (id === 'menu') buildMenu(); }
+function plain(t){ return t.replace(/[\[\]{}]/g, ''); }
+function card(p, i){
+  var b = document.createElement('button'); b.className = 'card';
+  var m = /p\.\d+/.exec(p.label);
+  b.innerHTML = '<span class="no"></span><span><div class="t"></div><div class="s"></div></span>';
+  b.querySelector('.no').textContent = p.custom || !m ? '自作' : m[0];
+  b.querySelector('.t').textContent = p.label.replace(/^自作：/, '').replace(/ ?p\.\d+/, '');   // ページは左の黒い札に出す
+  b.querySelector('.s').textContent = plain(p.text);
+  b.onclick = function(){ load(i); };
+  return b;
 }
+function buildMenu(){
+  var pre = $('mPre'), cus = $('mCus'); pre.innerHTML = ''; cus.innerHTML = '';
+  PRESETS.forEach(function(p, i){ pre.appendChild(card(p, i)); });
+  if (!custom.length) cus.innerHTML = '<p class="empty">まだ ありません。「問題をつくる」で 作れます。</p>';
+  custom.forEach(function(p, j){
+    var w = document.createElement('div'); w.className = 'cwrap';
+    w.appendChild(card(p, PRESETS.length + j));
+    var d = document.createElement('button'); d.className = 'del'; d.textContent = '消す';
+    d.onclick = function(){
+      if (!confirm('「' + p.label.replace(/^自作：/, '') + '」を 消しますか？（元に もどせません）')) return;
+      custom.splice(j, 1);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(custom)); } catch (e) {}
+      buildMenu();
+    };
+    w.appendChild(d); cus.appendChild(w);
+  });
+}
+function setFs(k){
+  var o = FS.filter(function(x){ return x.k === k; })[0] || FS[1];
+  document.documentElement.style.setProperty('--fs', o.f); svgF = o.svg;
+  $('fsOpts').querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.k === o.k); });
+  try { localStorage.setItem(FS_KEY, o.k); } catch (e) {}
+}
+FS.forEach(function(o){
+  var b = document.createElement('button'); b.textContent = o.name; b.dataset.k = o.k;
+  b.onclick = function(){ setFs(o.k); }; $('fsOpts').appendChild(b);
+});
+try { setFs(localStorage.getItem(FS_KEY) || 'm'); } catch (e) { setFs('m'); }
 /* ===== 問題をつくる ===== */
 function kind(){ return document.querySelector('input[name=kind]:checked').value === '3' ? 3 : 2; }
 function unk(){ return document.querySelector('input[name=unk]:checked').value; }
@@ -389,7 +473,9 @@ function syncForm(){
 }
 
 /* ===== 操作 ===== */
-$('sel').onchange = function(){ load(Number(this.value)); this.blur(); };
+$('bMenu').onclick = function(){ show('menu'); };
+$('mSet').onclick = function(){ show('settings'); };
+$('sBack').onclick = function(){ show('menu'); };
 $('bPrev').onclick = function(){ go(-1); };
 $('bNext').onclick = function(){ go(1); };
 function setView(m){
@@ -404,19 +490,19 @@ $('bFull').onclick = function(){
   if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(function(){});
 };
 document.addEventListener('keydown', function(e){
-  if ($('dlg').open || e.target.tagName === 'SELECT') return;
+  if ($('dlg').open || $('viewer').hidden) return;
   if (['ArrowRight','PageDown',' ','Enter'].indexOf(e.key) >= 0){ e.preventDefault(); go(1); }   // プレゼン用リモコンは PageDown を送る
   else if (['ArrowLeft','PageUp','Backspace'].indexOf(e.key) >= 0){ e.preventDefault(); go(-1); }
   else if (e.key === 'f' || e.key === 'F') $('bFull').click();
 });
-$('bMake').onclick = function(){ syncForm(); $('dlg').showModal(); };
+$('mMake').onclick = function(){ syncForm(); $('dlg').showModal(); };
 $('cCancel').onclick = function(){ $('dlg').close(); };
 $('dlg').addEventListener('input', syncForm);
 $('cOk').onclick = function(){
   var r = readForm(); if (r.err) return;
   r.p.custom = true; custom.push(r.p);
   try { localStorage.setItem(LS_KEY, JSON.stringify(custom)); } catch (e) {}
-  var i = all().length - 1; fillSel(i); load(i); $('dlg').close();
+  $('dlg').close(); load(all().length - 1);
 };
 
 // 全画面ではボタンが無いので、画面の右2/3をタップで次へ、左1/3で前へ（Esc で全画面を終える）
@@ -426,7 +512,7 @@ document.addEventListener('click', function(e){
 });
 
 document.documentElement.lang = 'ja';
-fillSel(0); load(0);
+show('menu');
 </script>
 </body>
 </html>
