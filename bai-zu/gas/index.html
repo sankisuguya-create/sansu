@@ -91,7 +91,9 @@ dialog legend{font-weight:700;padding:0 4px}
 #cMsg{min-height:1.4em;font-weight:700}
 #cMsg.err{color:var(--ink-alert)}
 .dbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
-:fullscreen header{display:none}
+:fullscreen header,:fullscreen footer{display:none}   /* 児童に見せる時は操作部分を消す。進めるのはキー・リモコン・画面タップ */
+:fullscreen #problem{padding-top:28px}
+:fullscreen #eq{padding-bottom:20px}
 </style>
 </head>
 <body>
@@ -374,15 +376,19 @@ ID0gZnVuY3Rpb24oKXsgJCgnZGxnJykuY2xvc2UoKTsgfTsKJCgnZGxnJykuYWRkRXZlbnRMaXN0ZW5l
 Rm9ybSk7CiQoJ2NPaycpLm9uY2xpY2sgPSBmdW5jdGlvbigpewogIHZhciByID0gcmVhZEZvcm0oKTsgaWYgKHIuZXJyKSByZXR1
 cm47CiAgci5wLmN1c3RvbSA9IHRydWU7IGN1c3RvbS5wdXNoKHIucCk7CiAgdHJ5IHsgbG9jYWxTdG9yYWdlLnNldEl0ZW0oTFNf
 S0VZLCBKU09OLnN0cmluZ2lmeShjdXN0b20pKTsgfSBjYXRjaCAoZSkge30KICB2YXIgaSA9IGFsbCgpLmxlbmd0aCAtIDE7IGZp
-bGxTZWwoaSk7IGxvYWQoaSk7ICQoJ2RsZycpLmNsb3NlKCk7Cn07Cgpkb2N1bWVudC5kb2N1bWVudEVsZW1lbnQubGFuZyA9ICdq
-YSc7CmZpbGxTZWwoMCk7IGxvYWQoMCk7
+bGxTZWwoaSk7IGxvYWQoaSk7ICQoJ2RsZycpLmNsb3NlKCk7Cn07CgovLyDlhajnlLvpnaLjgafjga/jg5zjgr/jg7PjgYznhKHj
+gYTjga7jgafjgIHnlLvpnaLjga7lj7MyLzPjgpLjgr/jg4Pjg5fjgafmrKHjgbjjgIHlt6YxLzPjgafliY3jgbjvvIhFc2Mg44Gn
+5YWo55S76Z2i44KS57WC44GI44KL77yJCmRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJywgZnVuY3Rpb24oZSl7CiAg
+aWYgKCFkb2N1bWVudC5mdWxsc2NyZWVuRWxlbWVudCB8fCAkKCdkbGcnKS5vcGVuKSByZXR1cm47CiAgZ28oZS5jbGllbnRYIDwg
+d2luZG93LmlubmVyV2lkdGggLyAzID8gLTEgOiAxKTsKfSk7Cgpkb2N1bWVudC5kb2N1bWVudEVsZW1lbnQubGFuZyA9ICdqYSc7
+CmZpbGxTZWwoMCk7IGxvYWQoMCk7
 </script>
 <script>
 (function () {
   var t = document.getElementById('appB64').textContent.replace(/[^A-Za-z0-9+/=]/g, '');
   var bin = atob(t), bytes = new Uint8Array(bin.length);
   for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  if (bytes.length !== 17349) { document.body.insertAdjacentHTML('afterbegin', '<p style="color:#b42318;font-weight:700;padding:8px">ページが こわれています（' + bytes.length + '/17349）。index.html を 貼り直してください。</p>'); return; }
+  if (bytes.length !== 17646) { document.body.insertAdjacentHTML('afterbegin', '<p style="color:#b42318;font-weight:700;padding:8px">ページが こわれています（' + bytes.length + '/17646）。index.html を 貼り直してください。</p>'); return; }
   var s = document.createElement('script');
   s.textContent = new TextDecoder('utf-8').decode(bytes);
   document.body.appendChild(s);

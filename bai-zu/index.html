@@ -90,7 +90,9 @@ dialog legend{font-weight:700;padding:0 4px}
 #cMsg{min-height:1.4em;font-weight:700}
 #cMsg.err{color:var(--ink-alert)}
 .dbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
-:fullscreen header{display:none}
+:fullscreen header,:fullscreen footer{display:none}   /* 児童に見せる時は操作部分を消す。進めるのはキー・リモコン・画面タップ */
+:fullscreen #problem{padding-top:28px}
+:fullscreen #eq{padding-bottom:20px}
 </style>
 </head>
 <body>
@@ -416,6 +418,12 @@ $('cOk').onclick = function(){
   try { localStorage.setItem(LS_KEY, JSON.stringify(custom)); } catch (e) {}
   var i = all().length - 1; fillSel(i); load(i); $('dlg').close();
 };
+
+// 全画面ではボタンが無いので、画面の右2/3をタップで次へ、左1/3で前へ（Esc で全画面を終える）
+document.addEventListener('click', function(e){
+  if (!document.fullscreenElement || $('dlg').open) return;
+  go(e.clientX < window.innerWidth / 3 ? -1 : 1);
+});
 
 document.documentElement.lang = 'ja';
 fillSel(0); load(0);
